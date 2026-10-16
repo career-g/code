@@ -299,7 +299,7 @@
             color: #64748b;
         }
 
-        /* トースト通知のスタイル（画面中央配置） */
+        /* トースト通知のスタイル（中央配置・勝手な改行を防止） */
         #toast {
             position: fixed;
             top: 50%;
@@ -318,6 +318,7 @@
             pointer-events: none;
             text-align: center;
             backdrop-filter: blur(4px);
+            white-space: nowrap; /* 途中で勝手に改行させない */
         }
         #toast.show {
             opacity: 1;
@@ -393,7 +394,7 @@
         loadGitHubCSV();
     });
 
-    // トースト通知を表示する関数（画面中央）
+    // トースト通知を表示する関数（画面中央・1行表示）
     function showToast(message, isError = false) {
         const toast = document.getElementById("toast");
         toast.innerText = message;
@@ -403,7 +404,7 @@
         
         window.toastTimer = setTimeout(() => {
             toast.className = "";
-        }, 1800); // 1.8秒後にふんわり消えます
+        }, 1800);
     }
 
     async function loadGitHubCSV() {
