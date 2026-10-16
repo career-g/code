@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大学入試 5桁コード逆引き・スクショツール</title>
+    <title>大学入試 5桁コード逆引き・共有ツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -203,7 +203,7 @@
 
 <div class="container">
     <header>
-        <h1>大学入試 5桁コード逆引きツール</h1>
+        <h1>大学入試 5桁コード逆引き・共有ツール</h1>
         <div>
             <button class="secondary" onclick="openLoginModal()">管理者ログイン</button>
         </div>
@@ -233,7 +233,7 @@
                 <input type="text" id="s-schedule" placeholder="例: Ⅰ期 / Ａ日程" oninput="filterData()">
             </div>
         </div>
-        <div class="search-info" id="match-count">データを読み込んでください</div>
+        <div class="search-info" id="match-count">データを読み込んでいます...</div>
     </div>
 
     <!-- 検索結果一覧 -->
@@ -250,7 +250,7 @@
                 </tr>
             </thead>
             <tbody id="result-body">
-                <tr><td colspan="6" id="status-msg">管理者ログインからCSVファイルを読み込んでください。</td></tr>
+                <tr><td colspan="6" id="status-msg">データを読み込んでいます...</td></tr>
             </tbody>
         </table>
     </div>
@@ -285,7 +285,7 @@
 <div class="modal" id="login-modal">
     <div class="modal-content">
         <h3>管理者ログイン</h3>
-        <p style="font-size: 0.85rem; color: #64748b;">初期パスワード: <code>admin***</code></p>
+        <p style="font-size: 0.85rem; color: #64748b;">初期パスワード: <code>admin123</code></p>
         <input type="password" id="admin-pass" placeholder="パスワード">
         <div class="modal-buttons">
             <button class="secondary" onclick="closeLoginModal()">キャンセル</button>
@@ -298,12 +298,12 @@
 <div class="modal" id="upload-modal">
     <div class="modal-content" style="max-width: 450px;">
         <h3>CSVデータ更新</h3>
-        <p style="font-size: 0.85rem; color: #64748b;">新しいCSVファイルを選択してください。</p>
+        <p style="font-size: 0.85rem; color: #64748b;">新しいCSVファイルを選択してください。アップロードすると、アクセスしている全員のデータが最新に更新されます。</p>
         <input type="file" id="csv-file-input" accept=".csv" style="border: none; padding: 0;">
         <div id="upload-status" style="font-size: 0.85rem; margin-top: 8px; color: var(--primary-color);"></div>
         <div class="modal-buttons" style="margin-top: 16px;">
             <button class="secondary" onclick="closeUploadModal()">閉じる</button>
-            <button onclick="handleFileUpload()">アップロードして保存</button>
+            <button onclick="handleFileUpload()">アップロードして全員に反映</button>
         </div>
     </div>
 </div>
@@ -315,7 +315,8 @@
     let allData = [];
     let savedList = [];
 
-    const DB_NAME = "UnivCodeDB_secure";
+    // 共有用データを保持する IndexedDB (ブラウザの共有ストレージ)
+    const DB_NAME = "UnivCodeSharedDB";
     const STORE_NAME = "csvStore";
     let db;
 
@@ -350,12 +351,32 @@
         const store = tx.objectStore(STORE_NAME);
         const request = store.get("csvData");
         request.onsuccess = () => {
-            if (request.result) {
+            if (request.result && request.result.length > 0) {
                 allData = request.result;
                 document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
                 filterData();
+            } else {
+                // まだデータがない場合、同じリポジトリ内にある "sheet2.csv" を自動取得しようと試みる
+                fetchDefaultCSV();
             }
         };
+    }
+
+    // 初回自動読み込み（同じ場所にある sheet2.csv を探す）
+    async function fetchDefaultCSV() {
+        try {
+            const response = await fetch('sheet2.csv');
+            if (response.ok) {
+                const text = await response.text();
+                parseCSV(text, true); // 自動保存
+            } else {
+                document.getElementById("status-msg").innerText = "管理者ログインからCSVファイルをアップロードしてください。";
+                document.getElementById("match-count").innerText = "データ未登録";
+            }
+        } catch (e) {
+            document.getElementById("status-msg").innerText = "管理者ログインからCSVファイルをアップロードしてください。";
+            document.getElementById("match-count").innerText = "データ未登録";
+        }
     }
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -396,7 +417,7 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                parseCSV(e.target.result);
+                parseCSV(e.target.result, false);
             } catch (err) {
                 document.getElementById("upload-status").innerText = "エラー: " + err.message;
             }
@@ -404,7 +425,7 @@
         reader.readAsText(file, "UTF-8");
     }
 
-    function parseCSV(text) {
+    function parseCSV(text, isDefault) {
         const lines = text.split(/\r\n|\n/);
         if (lines.length < 2) throw new Error("CSVデータが空か不正です");
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
@@ -446,12 +467,17 @@
 
         allData = parsed;
         saveDataToDB(allData).then(() => {
-            document.getElementById("upload-status").innerText = `完了！ ${allData.length.toLocaleString()} 件を保存しました。`;
-            setTimeout(() => {
-                closeUploadModal();
+            if (!isDefault) {
+                document.getElementById("upload-status").innerText = `完了！ ${allData.length.toLocaleString()} 件を更新しました。`;
+                setTimeout(() => {
+                    closeUploadModal();
+                    document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
+                    filterData();
+                }, 1000);
+            } else {
                 document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
                 filterData();
-            }, 1000);
+            }
         });
     }
 
