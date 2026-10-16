@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>9大学入試 5桁コード逆引き・共有ツール</title>
+    <title>8 大学入試 5桁コード逆引き・共有ツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -192,7 +192,6 @@
                 padding: 4px 0 !important;
                 position: relative;
             }
-            /* 1行目：5桁コードと保存ボタンを横並びに */
             td:nth-child(1) {
                 display: inline-block;
                 font-size: 1.2rem;
@@ -202,7 +201,6 @@
                 float: right;
                 padding: 0 !important;
             }
-            /* 2行目：大学名・学部名 */
             td:nth-child(2), td:nth-child(3) {
                 display: inline-block;
                 font-weight: bold;
@@ -213,14 +211,12 @@
                 content: " ／ ";
                 color: #94a3b8;
             }
-            /* 3行目：学科名 */
             td:nth-child(4) {
                 display: block;
                 font-size: 0.85rem;
                 color: #475569;
                 margin-top: 2px;
             }
-            /* 4行目：方式・日程 */
             td:nth-child(5) {
                 display: block;
                 font-size: 0.85rem;
@@ -282,7 +278,7 @@
                 </tr>
             </thead>
             <tbody id="result-body">
-                <tr><td colspan="6" id="status-msg">GitHubから「コード.csv」を読み込んでいます...</td></tr>
+                <tr><td colspan="6" id="status-msg">GitHubから「code.csv」を読み込んでいます...</td></tr>
             </tbody>
         </table>
     </div>
@@ -323,12 +319,13 @@
 
     async function loadGitHubCSV() {
         try {
-            const response = await fetch(encodeURI('コード.csv'));
-            if (!response.ok) throw new Error("「コード.csv」が見つかりませんでした。");
+            // code.csv を読み込む設定
+            const response = await fetch('code.csv');
+            if (!response.ok) throw new Error("「code.csv」が見つかりませんでした。");
             const text = await response.text();
             parseCSV(text);
         } catch (err) {
-            document.getElementById("status-msg").innerText = "エラー: " + err.message;
+            document.getElementById("status-msg").innerText = "エラー: " + err.message + " (GitHubに code.csv が正しくアップされているか確認してください)";
             document.getElementById("match-count").innerText = "読み込み失敗";
         }
     }
