@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大学入試 5桁コード逆引き・共有ツール</title>
+    <title>1 大学入試 5桁コード逆引き・共有ツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -18,7 +18,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 16px;
+            padding: 12px;
         }
         .container {
             max-width: 1200px;
@@ -28,14 +28,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             background: var(--card-bg);
-            padding: 16px 20px;
+            padding: 14px 16px;
             border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         h1 {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             margin: 0;
             color: var(--primary-color);
         }
@@ -43,11 +43,11 @@
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 8px 14px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             transition: background 0.2s;
         }
         button:hover { background-color: var(--primary-hover); }
@@ -59,30 +59,30 @@
         /* 検索カード */
         .search-card {
             background: var(--card-bg);
-            padding: 20px;
+            padding: 16px;
             border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .search-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
         }
         .search-field label {
             display: block;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: bold;
             margin-bottom: 4px;
             color: #475569;
         }
         .search-field input {
             width: 100%;
-            padding: 8px 12px;
+            padding: 8px 10px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             box-sizing: border-box;
         }
         .search-field input:focus {
@@ -91,29 +91,28 @@
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
         .search-info {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #64748b;
             text-align: right;
         }
 
-        /* テーブル */
+        /* テーブル・レスポンシブ共通 */
         .table-container {
             background: var(--card-bg);
             border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            overflow-x: auto;
-            margin-bottom: 24px;
-            max-height: 400px;
+            margin-bottom: 20px;
+            max-height: 450px;
             overflow-y: auto;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
         th, td {
-            padding: 10px 14px;
+            padding: 10px 12px;
             border-bottom: 1px solid #f1f5f9;
         }
         th {
@@ -124,31 +123,31 @@
             color: #475569;
             font-weight: 600;
         }
-        tr:hover { background: #f8fafc; }
         .code-cell {
             font-family: monospace;
             font-weight: bold;
-            font-size: 1.05rem;
+            font-size: 1.1rem;
             color: var(--primary-color);
         }
 
         /* 保存リストエリア */
         .clip-section {
             background: var(--card-bg);
-            padding: 20px;
+            padding: 16px;
             border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             border: 2px dashed var(--primary-color);
+            margin-bottom: 20px;
         }
         .clip-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         .clip-title {
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: var(--primary-color);
         }
         .clip-count {
@@ -156,13 +155,82 @@
             color: #1e40af;
             padding: 2px 8px;
             border-radius: 12px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: bold;
         }
         #status-msg {
             text-align: center;
-            padding: 40px;
+            padding: 30px;
             color: #64748b;
+        }
+
+        /* ==========================================
+           スマホ画面（幅768px以下）用のカード風レイアウト
+           ================================---------- */
+        @media screen and (max-width: 768px) {
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+            /* ヘッダー（見出し行）は非表示にする */
+            thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+            tr {
+                background: #ffffff;
+                border: 1px solid var(--border-color);
+                border-radius: 10px;
+                margin: 10px;
+                padding: 12px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            }
+            tr:hover {
+                background: #f8fafc;
+            }
+            td {
+                border: none !important;
+                padding: 4px 0 !important;
+                position: relative;
+            }
+            /* 1行目：5桁コードと保存ボタンを横並びに目立たせる */
+            td:nth-child(1) {
+                display: inline-block;
+                font-size: 1.2rem;
+                margin-bottom: 6px;
+            }
+            td:nth-child(6) {
+                float: right;
+                padding: 0 !important;
+            }
+            /* 2行目：大学名・学部名 */
+            td:nth-child(2), td:nth-child(3) {
+                display: inline-block;
+                font-weight: bold;
+                font-size: 0.95rem;
+                color: #334155;
+            }
+            td:nth-child(2)::after {
+                content: " ／ ";
+                color: #94a3b8;
+            }
+            /* 3行目：学科名 */
+            td:nth-child(4) {
+                display: block;
+                font-size: 0.85rem;
+                color: #475569;
+                margin-top: 2px;
+            }
+            /* 4行目：方式・日程 */
+            td:nth-child(5) {
+                display: block;
+                font-size: 0.85rem;
+                color: #2563eb;
+                background: #eff6ff;
+                padding: 4px 8px !important;
+                border-radius: 4px;
+                margin-top: 6px;
+            }
         }
     </style>
 </head>
@@ -170,32 +238,32 @@
 
 <div class="container">
     <header>
-        <h1>大学入試 5桁コード逆引き・共有ツール</h1>
-        <div style="font-size: 0.85rem; color: #64748b;">GitHub上のCSVを自動共有中</div>
+        <h1>大学入試 5桁コード検索</h1>
+        <div style="font-size: 0.8rem; color: #64748b;">GitHub共有中</div>
     </header>
 
     <!-- 検索エリア（5項目） -->
     <div class="search-card">
         <div class="search-grid">
             <div class="search-field">
-                <label>大学名（前方一致）</label>
+                <label>大学名</label>
                 <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="filterData()">
             </div>
             <div class="search-field">
-                <label>学部名（前方一致）</label>
+                <label>学部名</label>
                 <input type="text" id="s-fac" placeholder="例: 理" oninput="filterData()">
             </div>
             <div class="search-field">
-                <label>学科名（前方一致）</label>
+                <label>学科名</label>
                 <input type="text" id="s-dept" placeholder="例: 物理" oninput="filterData()">
             </div>
             <div class="search-field">
-                <label>方式（日程方式名）</label>
+                <label>方式</label>
                 <input type="text" id="s-method" placeholder="例: 前期" oninput="filterData()">
             </div>
             <div class="search-field">
-                <label>日程（回・日程・区分）</label>
-                <input type="text" id="s-schedule" placeholder="例: Ⅰ期 / Ａ日程" oninput="filterData()">
+                <label>日程</label>
+                <input type="text" id="s-schedule" placeholder="例: Ⅰ期" oninput="filterData()">
             </div>
         </div>
         <div class="search-info" id="match-count">データを読み込んでいます...</div>
@@ -226,7 +294,7 @@
             <div class="clip-title">📋 転記用リスト（スクショ用・最大10件）</div>
             <div class="clip-count" id="clip-count">0 / 10件</div>
         </div>
-        <div class="table-container" style="max-height: 250px; margin-bottom: 0; background: white;">
+        <div class="table-container" style="max-height: 220px; margin-bottom: 0; background: white;">
             <table>
                 <thead>
                     <tr>
@@ -239,7 +307,7 @@
                     </tr>
                 </thead>
                 <tbody id="clip-body">
-                    <tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 20px;">ここに保存した項目が並びます（最大10件）</td></tr>
+                    <tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 15px;">ここに保存した項目が並びます（最大10件）</td></tr>
                 </tbody>
             </table>
         </div>
@@ -250,22 +318,18 @@
     let allData = [];
     let savedList = [];
 
-    // 起動時に自動でリポジトリ内の「コード.csv」を読みに行く
     window.addEventListener("DOMContentLoaded", () => {
         loadGitHubCSV();
     });
 
     async function loadGitHubCSV() {
         try {
-            // エンコードされた日本語ファイル名に対応
             const response = await fetch(encodeURI('コード.csv'));
-            if (!response.ok) {
-                throw new Error("「コード.csv」が見つかりませんでした。");
-            }
+            if (!response.ok) throw new Error("「コード.csv」が見つかりませんでした。");
             const text = await response.text();
             parseCSV(text);
         } catch (err) {
-            document.getElementById("status-msg").innerText = "エラー: " + err.message + "（GitHubに「コード.csv」が正しくアップされているかご確認ください）";
+            document.getElementById("status-msg").innerText = "エラー: " + err.message;
             document.getElementById("match-count").innerText = "読み込み失敗";
         }
     }
@@ -327,7 +391,6 @@
         return result;
     }
 
-    // 5項目AND検索・前方一致
     function filterData() {
         if (allData.length === 0) return;
 
@@ -374,7 +437,7 @@
             `;
         });
         if (list.length > 100) {
-            html += `<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 10px;">※件数が多いため最初の100件を表示しています。さらに文字を入力して絞り込んでください。</td></tr>`;
+            html += `<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 10px;">※件数が多いため最初の100件を表示しています。さらに絞り込んでください。</td></tr>`;
         }
         tbody.innerHTML = html;
     }
@@ -412,7 +475,7 @@
                 <tr>
                     <td class="code-cell">${item.code}</td>
                     <td>${item.univ}</td>
-                    <td>${item.fac}</td>
+                    <td>${item.fmtUniv || ''}</td>
                     <td>${item.dept || '-'}</td>
                     <td>${item.method} ${item.sched ? '(' + item.sched + ')' : ''}</td>
                     <td><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
