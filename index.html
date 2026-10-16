@@ -299,7 +299,7 @@
             color: #64748b;
         }
 
-        /* トースト通知のスタイル（中央配置・勝手な改行を防止） */
+        /* トースト通知のスタイル（中央配置・自然な改行） */
         #toast {
             position: fixed;
             top: 50%;
@@ -307,7 +307,7 @@
             transform: translate(-50%, -50%) scale(0.9);
             background-color: rgba(15, 23, 42, 0.92);
             color: #ffffff;
-            padding: 14px 28px;
+            padding: 16px 28px;
             border-radius: 12px;
             font-size: 1rem;
             font-weight: bold;
@@ -318,7 +318,9 @@
             pointer-events: none;
             text-align: center;
             backdrop-filter: blur(4px);
-            white-space: nowrap; /* 途中で勝手に改行させない */
+            max-width: 85vw;
+            line-height: 1.5;
+            word-break: auto-phrase; /* ブラウザが自然な位置で改行するのを助ける */
         }
         #toast.show {
             opacity: 1;
@@ -394,7 +396,7 @@
         loadGitHubCSV();
     });
 
-    // トースト通知を表示する関数（画面中央・1行表示）
+    // トースト通知を表示する関数（画面中央・自然な改行）
     function showToast(message, isError = false) {
         const toast = document.getElementById("toast");
         toast.innerText = message;
@@ -404,7 +406,7 @@
         
         window.toastTimer = setTimeout(() => {
             toast.className = "";
-        }, 1800);
+        }, 2000);
     }
 
     async function loadGitHubCSV() {
@@ -430,7 +432,7 @@
         const codeKey = Object.keys(colMap).find(k => k.includes('5桁コード') || k.includes('記入用大学コード'));
         const univKey = Object.keys(colMap).find(k => k === '大学名');
         const facKey = Object.keys(colMap).find(k => k === '学部名');
-        const deptKey = Object.keys(colMap).find(k => k === '学科名');
+        const deptKey = Object.keys(colMap).find(k === '学科名');
         const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
         const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
 
