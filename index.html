@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1大学入試 5桁コード逆引きツール</title>
+    <title>大学入試 5桁コード逆引きツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -11,7 +11,7 @@
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-color: #1e293b;
-            --border-color: #e2e8f0;
+            --border-color: #cbd5e1;
         }
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -96,15 +96,13 @@
             text-align: right;
         }
 
-        /* リスト・テーブル共通コンテナ */
+        /* テーブル・コンテナ */
         .table-container {
             background: transparent;
             margin-bottom: 16px;
             max-height: 500px;
             overflow-y: auto;
         }
-        
-        /* デスクトップ用テーブル */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -127,7 +125,7 @@
         .code-cell-pc {
             font-family: monospace;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 1.1rem;
             color: var(--primary-color);
         }
 
@@ -168,12 +166,17 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
+        /* 日程方式別の背景色クラス（見やすさ重視のアレンジ） */
+        .bg-zenki { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 薄い青 */
+        .bg-chuki { background-color: #fefce8 !important; border-color: #fef08a !important; } /* 薄い黄色 */
+        .bg-koki  { background-color: #fef2f2 !important; border-color: #fecaca !important; } /* 薄い赤 */
+
         /* ==========================================
-           スマホ用カードレイアウト（逆引き・コード後まわし）
+           スマホ用カードレイアウト（左側にコード配置）
            ========================================== */
         @media screen and (max-width: 768px) {
             table, thead, tbody, th, tr {
-                display: none; /* スマホではテーブルタグを隠してカードを表示 */
+                display: none;
             }
             .table-container {
                 display: flex;
@@ -182,16 +185,33 @@
                 max-height: none;
             }
             .mobile-card {
-                background: #ffffff;
                 border: 1px solid var(--border-color);
                 border-radius: 10px;
-                padding: 12px;
+                padding: 10px 12px;
                 box-shadow: 0 1px 2px rgba(0,0,0,0.04);
                 display: flex;
-                justify-content: space-between;
                 align-items: center;
+                justify-content: space-between;
                 gap: 10px;
             }
+            /* 左側のコードエリア */
+            .card-code-area {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-width: 75px;
+                padding-right: 8px;
+                border-right: 1px solid rgba(0,0,0,0.08);
+            }
+            .card-code {
+                font-family: monospace;
+                font-size: 1.2rem;
+                font-weight: bold;
+                color: #1d4ed8;
+                margin-bottom: 2px;
+            }
+            /* 右側の情報エリア */
             .mobile-card-content {
                 flex-grow: 1;
             }
@@ -199,12 +219,12 @@
                 font-size: 0.95rem;
                 font-weight: bold;
                 color: #0f172a;
-                margin-bottom: 2px;
+                margin-bottom: 1px;
             }
             .card-dept {
                 font-size: 0.8rem;
                 color: #475569;
-                margin-bottom: 4px;
+                margin-bottom: 3px;
             }
             .card-meta {
                 display: flex;
@@ -213,23 +233,13 @@
                 align-items: center;
             }
             .card-badge {
-                background: #f1f5f9;
+                background: rgba(255, 255, 255, 0.7);
+                border: 1px solid rgba(0,0,0,0.08);
                 color: #334155;
                 font-size: 0.7rem;
-                padding: 2px 6px;
+                padding: 1px 6px;
                 border-radius: 4px;
-            }
-            /* コードを後ろに・大きく目立たせる */
-            .card-code-area {
-                text-align: right;
-                min-width: 80px;
-            }
-            .card-code {
-                font-family: monospace;
-                font-size: 1.15rem;
-                font-weight: bold;
-                color: var(--primary-color);
-                margin-bottom: 4px;
+                font-weight: 600;
             }
         }
     </style>
@@ -239,7 +249,7 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引き</h1>
-        <div style="font-size: 0.75rem; color: #64748b;">逆引き最適化版</div>
+        <div style="font-size: 0.75rem; color: #64748b;">コード左側・色分け版</div>
     </header>
 
     <!-- 検索エリア（5項目） -->
@@ -272,19 +282,17 @@
     <!-- 検索結果一覧 -->
     <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
     <div class="table-container" id="result-container">
-        <!-- デスクトップ用テーブル -->
         <table id="result-table">
             <thead>
                 <tr>
+                    <th>5桁コード</th>
                     <th>大学名・学部・学科名</th>
                     <th>方式・日程</th>
-                    <th>5桁コード</th>
                     <th style="text-align: center;">操作</th>
                 </tr>
             </thead>
             <tbody id="result-body"></tbody>
         </table>
-        <!-- スマホ用カードリストがここに動的に入ります -->
     </div>
 
     <!-- クリップボード（最大10件記憶・スクショ用） -->
@@ -297,9 +305,9 @@
             <table id="clip-table">
                 <thead>
                     <tr>
+                        <th>5桁コード</th>
                         <th>大学名・学部・学科名</th>
                         <th>方式・日程</th>
-                        <th>5桁コード</th>
                         <th style="text-align: center;">操作</th>
                     </tr>
                 </thead>
@@ -388,6 +396,16 @@
         return result;
     }
 
+    // 方式名から背景色クラスを判定する関数
+    function getBgClass(methodText) {
+        if (!methodText) return "";
+        const m = methodText.toLowerCase();
+        if (m.includes('前期')) return "bg-zenki";
+        if (m.includes('中期')) return "bg-chuki";
+        if (m.includes('後期')) return "bg-koki";
+        return "";
+    }
+
     function filterData() {
         if (allData.length === 0) return;
 
@@ -426,26 +444,30 @@
         // PC用テーブルのHTML
         let pcHtml = "";
         displayList.forEach(item => {
-            const place = `${item.univ} ${item.fac} ${item.dept ? '/ ' + item.dept : ''}`;
+            const bgClass = getBgClass(item.method);
             const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
             pcHtml += `
-                <tr>
+                <tr class="${bgClass}">
+                    <td class="code-cell-pc">${item.code}</td>
                     <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
                     <td><span class="card-badge">${schedStr}</span></td>
-                    <td class="code-cell-pc">${item.code}</td>
                     <td style="text-align: center;"><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
                 </tr>
             `;
         });
-        tbody.innerHTML = pcHtml;
 
-        // スマホ用カードのHTML（逆引き：大学・学部が先、コードが後）
+        // スマホ用カードのHTML（左側にコード、色分け背景）
         let mobileHtml = "";
         displayList.forEach(item => {
+            const bgClass = getBgClass(item.method);
             const deptStr = item.dept ? item.dept : '';
             const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
             mobileHtml += `
-                <div class="mobile-card">
+                <div class="mobile-card ${bgClass}">
+                    <div class="card-code-area">
+                        <div class="card-code">${item.code}</div>
+                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
+                    </div>
                     <div class="mobile-card-content">
                         <div class="card-univ">${item.univ} ${item.fac}</div>
                         ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
@@ -453,22 +475,17 @@
                             <span class="card-badge">${schedStr}</span>
                         </div>
                     </div>
-                    <div class="card-code-area">
-                        <div class="card-code">${item.code}</div>
-                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
-                    </div>
                 </div>
             `;
         });
 
-        // 画面幅に応じて切り替わるようにテーブルとカードを両方更新
         let wrapperHtml = `
             <table id="result-table">
                 <thead>
                     <tr>
+                        <th>5桁コード</th>
                         <th>大学名・学部・学科名</th>
                         <th>方式・日程</th>
-                        <th>5桁コード</th>
                         <th style="text-align: center;">操作</th>
                     </tr>
                 </thead>
@@ -481,7 +498,6 @@
         
         container.innerHTML = wrapperHtml;
         
-        // 簡易的にスマホ表示時はカード群を表示するスタイル調整
         const styleTag = document.getElementById("dynamic-style") || document.createElement('style');
         styleTag.id = "dynamic-style";
         styleTag.innerHTML = `
@@ -526,12 +542,13 @@
 
         let html = "";
         savedList.forEach((item, idx) => {
+            const bgClass = getBgClass(item.method);
             const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
             html += `
-                <tr>
+                <tr class="${bgClass}">
+                    <td class="code-cell-pc">${item.code}</td>
                     <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
                     <td><span class="card-badge">${schedStr}</span></td>
-                    <td class="code-cell-pc">${item.code}</td>
                     <td style="text-align: center;"><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
                 </tr>
             `;
