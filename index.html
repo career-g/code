@@ -18,7 +18,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 10px;
+            padding: 8px;
         }
         .container {
             max-width: 1200px;
@@ -28,14 +28,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             background: var(--card-bg);
-            padding: 12px 16px;
-            border-radius: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         h1 {
-            font-size: 1rem;
+            font-size: 0.95rem;
             margin: 0;
             color: var(--primary-color);
         }
@@ -47,11 +47,11 @@
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
+            padding: 5px 10px;
+            border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             transition: background 0.2s;
         }
         button:hover { background-color: var(--primary-hover); }
@@ -62,34 +62,34 @@
         /* 検索カード */
         .search-card {
             background: var(--card-bg);
-            padding: 14px;
-            border-radius: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .search-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 8px;
-            margin-bottom: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 6px;
+            margin-bottom: 6px;
         }
         .search-field label {
             display: block;
             font-size: 0.7rem;
             font-weight: bold;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             color: #64748b;
         }
-        .search-field input {
+        .search-field input, .search-field select {
             width: 100%;
-            padding: 7px 10px;
+            padding: 5px 8px;
             border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 0.85rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
             box-sizing: border-box;
             background: #f8fafc;
         }
-        .search-field input:focus {
+        .search-field input:focus, .search-field select:focus {
             outline: none;
             border-color: var(--primary-color);
             background: #fff;
@@ -101,32 +101,91 @@
             background: #eff6ff;
             border: 1px solid #bfdbfe;
             color: #1e40af;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 8px;
+            margin-top: 6px;
         }
         .highlight-count {
             color: #2563eb;
-            font-size: 1.05rem;
+            font-size: 1rem;
         }
         .highlight-count.error {
             color: #dc2626;
         }
         .count-sub-text {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: normal;
             color: #64748b;
+        }
+
+        /* アコーディオン・グループリスト */
+        .univ-group {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        .univ-header {
+            padding: 10px 12px;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #0f172a;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        .univ-header:hover {
+            background: #f1f5f9;
+        }
+        .univ-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .univ-count-badge {
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 0.7rem;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: normal;
+        }
+        .univ-arrow {
+            font-size: 0.8rem;
+            color: #64748b;
+            transition: transform 0.2s;
+        }
+        .univ-group.open .univ-arrow {
+            transform: rotate(180deg);
+        }
+        .univ-content {
+            display: none;
+            padding: 6px;
+            background: #ffffff;
+            border-top: 1px solid #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .univ-group.open .univ-content {
+            display: flex;
         }
 
         /* テーブル・コンテナ */
         .table-container {
             background: transparent;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             max-height: 500px;
             overflow-y: auto;
         }
@@ -134,172 +193,106 @@
             max-height: 250px;
             margin-bottom: 0;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--card-bg);
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            font-size: 0.85rem;
-        }
-        th, td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #f1f5f9;
-            text-align: left;
-        }
-        th {
-            background: #f8fafc;
-            color: #475569;
-            font-weight: 600;
-        }
-        .code-cell-pc {
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: var(--primary-color);
-        }
 
         /* 保存リストエリア */
         .clip-section {
             background: var(--card-bg);
-            padding: 14px;
-            border-radius: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             border: 2px dashed var(--primary-color);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .clip-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .clip-title {
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--primary-color);
         }
         .clip-count {
             background: #dbeafe;
             color: #1e40af;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.7rem;
             font-weight: bold;
         }
         #status-msg, .guide-msg {
             text-align: center;
-            padding: 30px;
+            padding: 20px;
             color: #475569;
             background: var(--card-bg);
-            border-radius: 10px;
+            border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 500;
         }
         .guide-msg.error {
             color: #dc2626;
         }
         .guide-msg.small {
-            padding: 15px;
-            font-size: 0.85rem;
-        }
-        .guide-sub-text {
+            padding: 10px;
             font-size: 0.8rem;
-            color: #64748b;
-            font-weight: normal;
         }
 
-        /* 国公立（区分1・2）専用の日程別背景色 */
-        .bg-zenki { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 国公立前期：薄い青 */
-        .bg-chuki { background-color: #fefce8 !important; border-color: #fef08a !important; } /* 国公立中期：薄い黄色 */
-        .bg-koki  { background-color: #fef2f2 !important; border-color: #fecaca !important; } /* 国公立後期：薄い赤 */
+        /* 国公立の日程別背景色 */
+        .bg-zenki  { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 前期：薄い青 */
+        .bg-chuki  { background-color: #fefce8 !important; border-color: #fef08a !important; } /* 中期：薄い黄色 */
+        .bg-koki   { background-color: #fef2f2 !important; border-color: #fecaca !important; } /* 後期：薄い赤 */
+        .bg-dokuji { background-color: #f3e8ff !important; border-color: #d8b4fe !important; } /* 独自日程：薄い紫 */
 
-        /* スマホ用カード共通レイアウト */
-        .mobile-cards-wrapper {
-            display: none;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .mobile-card {
+        /* カードレイアウト */
+        .sub-card {
             background: #ffffff;
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 10px 12px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            border-radius: 6px;
+            padding: 6px 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
+            gap: 8px;
         }
-        .card-code-area {
+        .sub-card-code-area {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-width: 75px;
-            padding-right: 8px;
+            min-width: 65px;
+            padding-right: 6px;
             border-right: 1px solid rgba(0,0,0,0.08);
         }
-        .card-code {
+        .sub-card-code {
             font-family: monospace;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: bold;
             color: #1d4ed8;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
-        .mobile-card-content {
+        .sub-card-content {
             flex-grow: 1;
         }
-        .card-univ-main {
+        .sub-card-main {
+            font-size: 0.85rem;
             font-weight: bold;
             color: #0f172a;
-            font-size: 0.95rem;
+            margin-bottom: 1px;
         }
-        .card-univ-fac {
-            font-weight: normal;
-            color: #475569;
-            margin-left: 6px;
-        }
-        .card-dept {
-            font-size: 0.8rem;
-            color: #64748b;
-            margin-bottom: 3px;
-        }
-        .card-meta {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .card-badge {
+        .sub-card-badge {
             background: rgba(255, 255, 255, 0.75);
             border: 1px solid rgba(0,0,0,0.08);
             color: #334155;
-            font-size: 0.7rem;
-            padding: 1px 6px;
-            border-radius: 4px;
+            font-size: 0.65rem;
+            padding: 1px 5px;
+            border-radius: 3px;
             font-weight: 600;
         }
 
-        /* テーブル内の文字スタイル整理 */
-        .td-univ-name {
-            font-weight: bold;
-            color: #0f172a;
-            font-size: 0.95rem;
-        }
-        .td-fac-name {
-            font-weight: normal;
-            color: #475569;
-            margin-left: 6px;
-        }
-        .td-dept-name {
-            font-weight: normal;
-            color: #64748b;
-        }
-
-        /* トースト通知のスタイル（中央配置・自然な改行） */
+        /* トースト通知 */
         #toast {
             position: fixed;
             top: 50%;
@@ -307,9 +300,9 @@
             transform: translate(-50%, -50%) scale(0.9);
             background-color: rgba(15, 23, 42, 0.92);
             color: #ffffff;
-            padding: 16px 28px;
+            padding: 14px 28px;
             border-radius: 12px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: bold;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
             z-index: 9999;
@@ -329,11 +322,6 @@
         #toast.error {
             background-color: rgba(220, 38, 38, 0.95);
         }
-
-        @media screen and (max-width: 768px) {
-            #result-table, #clip-table { display: none !important; }
-            .mobile-cards-wrapper { display: flex !important; }
-        }
     </style>
 </head>
 <body>
@@ -347,6 +335,19 @@
     <!-- 検索エリア -->
     <div class="search-card">
         <div class="search-grid">
+            <div class="search-field">
+                <label>学校区分</label>
+                <select id="s-type" onchange="filterData()">
+                    <option value="">すべて</option>
+                    <option value="1">国立</option>
+                    <option value="2">公立</option>
+                    <option value="3">私立</option>
+                    <option value="4">国公立短大</option>
+                    <option value="5">私立短大</option>
+                    <option value="6">大学校</option>
+                    <option value="8">専門</option>
+                </select>
+            </div>
             <div class="search-field">
                 <label>大学名</label>
                 <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="filterData()">
@@ -373,7 +374,7 @@
     <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
     <div class="table-container" id="result-container"></div>
 
-    <!-- クリップボード -->
+    <!-- 転記用リスト -->
     <div class="clip-section">
         <div class="clip-header">
             <div class="clip-title">📋 転記用リスト（スクショ用・最大10件）</div>
@@ -385,7 +386,6 @@
     </div>
 </div>
 
-<!-- トースト通知用の要素（画面中央） -->
 <div id="toast"></div>
 
 <script>
@@ -396,17 +396,12 @@
         loadGitHubCSV();
     });
 
-    // トースト通知を表示する関数（画面中央）
     function showToast(message, isError = false) {
         const toast = document.getElementById("toast");
         toast.innerText = message;
         toast.className = "show" + (isError ? " error" : "");
-        
         if (window.toastTimer) clearTimeout(window.toastTimer);
-        
-        window.toastTimer = setTimeout(() => {
-            toast.className = "";
-        }, 2000);
+        window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
     }
 
     async function loadGitHubCSV() {
@@ -416,7 +411,7 @@
             const text = await response.text();
             parseCSV(text);
         } catch (err) {
-            document.getElementById("status-msg").innerText = "エラー: " + err.message + " (GitHub上のファイル配置をご確認ください)";
+            document.getElementById("status-msg").innerText = "エラー: " + err.message;
             document.getElementById("match-count-box").innerText = "読み込み失敗";
         }
     }
@@ -427,14 +422,14 @@
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
         
         const colMap = {};
-        headers.forEach((headerName, idx) => { colMap[headerName] = idx; });
+        headers.forEach((h, idx) => { colMap[h] = idx; });
 
-        const codeKey = Object.keys(colMap).find(key => key.includes('5桁コード') || key.includes('記入用大学コード'));
-        const univKey = Object.keys(colMap).find(key => key === '大学名');
-        const facKey = Object.keys(colMap).find(key => key === '学部名');
-        const deptKey = Object.keys(colMap).find(key => key === '学科名');
-        const methodNameKey = Object.keys(colMap).find(key => key === '日程方式名');
-        const typeKey = Object.keys(colMap).find(key => key.includes('学校区分') || key.includes('設置区分') || key === '区分');
+        const codeKey = Object.keys(colMap).find(k => k.includes('5桁コード') || k.includes('記入用大学コード'));
+        const univKey = Object.keys(colMap).find(k => k === '大学名');
+        const facKey = Object.keys(colMap).find(k => k === '学部名');
+        const deptKey = Object.keys(colMap).find(k => k === '学科名');
+        const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
+        const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
 
         const parsed = [];
         for (let i = 1; i < lines.length; i++) {
@@ -480,18 +475,20 @@
 
     function getBgClass(item) {
         const type = String(item.schoolType);
-        if (type !== '1' && type !== '2') return "";
+        if (type !== '1' && type !== '2') return ""; 
 
         const text = item.methodName.toLowerCase();
         if (text.includes('前期')) return "bg-zenki";
         if (text.includes('中期')) return "bg-chuki";
         if (text.includes('後期')) return "bg-koki";
-        return "";
+        
+        return "bg-dokuji";
     }
 
     function filterData() {
         if (allData.length === 0) return;
 
+        const qType = document.getElementById("s-type").value;
         const qUniv = document.getElementById("s-univ").value.trim().toLowerCase();
         const qFac = document.getElementById("s-fac").value.trim().toLowerCase();
         const qDept = document.getElementById("s-dept").value.trim().toLowerCase();
@@ -500,13 +497,14 @@
         const countBox = document.getElementById("match-count-box");
         const container = document.getElementById("result-container");
 
-        if (!qUniv && !qFac && !qDept && !qMethod) {
+        if (!qType && !qUniv && !qFac && !qDept && !qMethod) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍 上の検索窓から、大学名などを入力してください<br><span class="guide-sub-text">（例：「愛知」と入力すると、完全一致の愛知大学が最優先で表示されます）</span></div>`;
+            container.innerHTML = `<div class="guide-msg">🔍 上の学校区分や検索窓から条件を指定してください</div>`;
             return;
         }
 
         const filtered = allData.filter(item => {
+            if (qType && item.schoolType !== qType) return false;
             if (qUniv && !item.univ.toLowerCase().startsWith(qUniv)) return false;
             if (qFac && !item.fac.toLowerCase().startsWith(qFac)) return false;
             if (qDept && !item.dept.toLowerCase().startsWith(qDept)) return false;
@@ -522,10 +520,10 @@
             });
         }
 
-        renderResults(filtered, filtered.length);
+        renderGroupedResults(filtered, qUniv);
     }
 
-    function renderResults(list, totalCount) {
+    function renderGroupedResults(list, qUniv) {
         const container = document.getElementById("result-container");
         const countBox = document.getElementById("match-count-box");
 
@@ -535,72 +533,79 @@
             return;
         }
 
-        const displayList = list.slice(0, 100);
-        const displayCount = displayList.length;
+        countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
 
-        if (totalCount > 100) {
-            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${totalCount.toLocaleString()} 件 <span class="count-sub-text">(最初の ${displayCount} 件を表示)</span></span>`;
-        } else {
-            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${totalCount.toLocaleString()} 件</span>`;
-        }
-
-        let pcHtml = "";
-        displayList.forEach(item => {
-            const bgClass = getBgClass(item);
-            pcHtml += `
-                <tr class="${bgClass}">
-                    <td class="code-cell-pc">${item.code}</td>
-                    <td>
-                        <span class="td-univ-name">${item.univ}</span>
-                        ${item.fac ? `<span class="td-fac-name">${item.fac}</span>` : ''}
-                        ${item.dept ? `<span class="td-dept-name"> / ${item.dept}</span>` : ''}
-                    </td>
-                    <td><span class="card-badge">${item.methodName}</span></td>
-                    <td class="text-center"><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
-                </tr>
-            `;
+        const grouped = {};
+        list.forEach(item => {
+            if (!grouped[item.univ]) {
+                grouped[item.univ] = [];
+            }
+            grouped[item.univ].push(item);
         });
 
-        let mobileHtml = "";
-        displayList.forEach(item => {
-            const bgClass = getBgClass(item);
-            const deptStr = item.dept ? item.dept : '';
-            mobileHtml += `
-                <div class="mobile-card ${bgClass}">
-                    <div class="card-code-area">
-                        <div class="card-code">${item.code}</div>
-                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
+        const univNames = Object.keys(grouped);
+        let html = '';
+
+        univNames.forEach((univName, index) => {
+            const items = grouped[univName];
+            const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
+            let isOpen = false;
+            if (qUniv) {
+                if (isExactMatch) isOpen = true;
+            } else {
+                if (index === 0) isOpen = true;
+            }
+
+            let cardsHtml = '';
+            items.forEach(item => {
+                const bgClass = getBgClass(item);
+                const deptStr = item.dept ? ` / ${item.dept}` : '';
+                cardsHtml += `
+                    <div class="sub-card ${bgClass}">
+                        <div class="sub-card-code-area">
+                            <div class="sub-card-code">${item.code}</div>
+                            <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
+                        </div>
+                        <div class="sub-card-content">
+                            <div class="sub-card-main">${item.fac}${deptStr}</div>
+                            <div class="sub-card-meta">
+                                <span class="sub-card-badge">${item.methodName}</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mobile-card-content">
-                        <div class="card-univ">
-                            <span class="card-univ-main">${item.univ}</span>
-                            ${item.fac ? `<span class="card-univ-fac">${item.fac}</span>` : ''}
+                `;
+            });
+
+            html += `
+                <div class="univ-group ${isOpen ? 'open' : ''}" id="univ-group-${index}">
+                    <div class="univ-header" onclick="toggleUnivGroup(${index})">
+                        <div class="univ-header-left">
+                            <span>${univName}</span>
+                            <span class="univ-count-badge">${items.length}件</span>
                         </div>
-                        ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
-                        <div class="card-meta">
-                            <span class="card-badge">${item.methodName}</span>
-                        </div>
+                        <div class="univ-arrow">▼</div>
+                    </div>
+                    <div class="univ-content">
+                        ${cardsHtml}
                     </div>
                 </div>
             `;
         });
 
-        container.innerHTML = `
-            <table id="result-table">
-                <thead>
-                    <tr>
-                        <th>5桁コード</th>
-                        <th>大学名・学部・学科名</th>
-                        <th>日程方式名</th>
-                        <th class="text-center">操作</th>
-                    </tr>
-                </thead>
-                <tbody>${pcHtml}</tbody>
-            </table>
-            <div class="mobile-cards-wrapper">
-                ${mobileHtml}
-            </div>
-        `;
+        container.innerHTML = html;
+    }
+
+    function toggleUnivGroup(index) {
+        const targetGroup = document.getElementById(`univ-group-${index}`);
+        const isOpen = targetGroup.classList.contains('open');
+
+        document.querySelectorAll('.univ-group').forEach(group => {
+            group.classList.remove('open');
+        });
+
+        if (!isOpen) {
+            targetGroup.classList.add('open');
+        }
     }
 
     function addToList(item) {
@@ -632,63 +637,27 @@
             return;
         }
 
-        let pcHtml = "";
+        let cardsHtml = '';
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
-            pcHtml += `
-                <tr class="${bgClass}">
-                    <td class="code-cell-pc">${item.code}</td>
-                    <td>
-                        <span class="td-univ-name">${item.univ}</span>
-                        ${item.fac ? `<span class="td-fac-name">${item.fac}</span>` : ''}
-                        ${item.dept ? `<span class="td-dept-name"> / ${item.dept}</span>` : ''}
-                    </td>
-                    <td><span class="card-badge">${item.methodName}</span></td>
-                    <td class="text-center"><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
-                </tr>
-            `;
-        });
-
-        let mobileHtml = "";
-        savedList.forEach((item, idx) => {
-            const bgClass = getBgClass(item);
-            const deptStr = item.dept ? item.dept : '';
-            mobileHtml += `
-                <div class="mobile-card ${bgClass}">
-                    <div class="card-code-area">
-                        <div class="card-code">${item.code}</div>
+            const deptStr = item.dept ? ` / ${item.dept}` : '';
+            cardsHtml += `
+                <div class="sub-card ${bgClass}">
+                    <div class="sub-card-code-area">
+                        <div class="sub-card-code">${item.code}</div>
                         <button class="danger" onclick="removeFromList(${idx})">削除</button>
                     </div>
-                    <div class="mobile-card-content">
-                        <div class="card-univ">
-                            <span class="card-univ-main">${item.univ}</span>
-                            ${item.fac ? `<span class="card-univ-fac">${item.fac}</span>` : ''}
-                        </div>
-                        ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
-                        <div class="card-meta">
-                            <span class="card-badge">${item.methodName}</span>
+                    <div class="sub-card-content">
+                        <div class="sub-card-main"><strong>${item.univ}</strong> ${item.fac}${deptStr}</div>
+                        <div class="sub-card-meta">
+                            <span class="sub-card-badge">${item.methodName}</span>
                         </div>
                     </div>
                 </div>
             `;
         });
 
-        container.innerHTML = `
-            <table id="clip-table">
-                <thead>
-                    <tr>
-                        <th>5桁コード</th>
-                        <th>大学名・学部・学科名</th>
-                        <th>日程方式名</th>
-                        <th class="text-center">操作</th>
-                    </tr>
-                </thead>
-                <tbody>${pcHtml}</tbody>
-            </table>
-            <div class="mobile-cards-wrapper">
-                ${mobileHtml}
-            </div>
-        `;
+        container.innerHTML = cardsHtml;
     }
 </script>
 
