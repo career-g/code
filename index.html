@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大学入試 5桁コード逆引きツール</title>
+    <title>大学入試 5桁コード検索</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -96,7 +96,7 @@
             text-align: right;
         }
 
-        /* テーブル・レスポンシブ共通 */
+        /* テーブル */
         .table-container {
             background: var(--card-bg);
             border-radius: 12px;
@@ -216,7 +216,7 @@
             td:nth-child(5) {
                 display: block;
                 font-size: 0.85rem;
-                color: #2563eb;
+                color: var(--primary-color);
                 background: #eff6ff;
                 padding: 4px 8px !important;
                 border-radius: 4px;
@@ -230,7 +230,7 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード検索</h1>
-        <div style="font-size: 0.8rem; color: #64748b;">GitHub自動共有中</div>
+        <div style="font-size: 0.8rem; color: #64748b;">GitHub自動同期中</div>
     </header>
 
     <!-- 検索エリア（5項目） -->
@@ -257,7 +257,7 @@
                 <input type="text" id="s-schedule" placeholder="例: Ⅰ期" oninput="filterData()">
             </div>
         </div>
-        <div class="search-info" id="match-count">データを読み込んでいます...</div>
+        <div class="search-info" id="match-count">GitHubからデータを読み込んでいます...</div>
     </div>
 
     <!-- 検索結果一覧 -->
@@ -315,12 +315,13 @@
 
     async function loadGitHubCSV() {
         try {
-            const response = await fetch('code.csv');
+            // 相対パスを確実に解決してGitHubから取得する
+            const response = await fetch('./code.csv', { cache: 'no-store' });
             if (!response.ok) throw new Error("「code.csv」が見つかりませんでした。");
             const text = await response.text();
             parseCSV(text);
         } catch (err) {
-            document.getElementById("status-msg").innerText = "エラー: " + err.message + " (GitHubに code.csv が正しく置かれているか確認してください)";
+            document.getElementById("status-msg").innerText = "エラー: " + err.message + " (GitHub上のファイル配置をご確認ください)";
             document.getElementById("match-count").innerText = "読み込み失敗";
         }
     }
