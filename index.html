@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>8 大学入試 5桁コード逆引き・共有ツール</title>
+    <title>7大学入試 5桁コード逆引き・共有ツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -56,6 +56,20 @@
         button.danger { background-color: #dc2626; }
         button.danger:hover { background-color: #b91c1c; }
         
+        /* アップロードパネル */
+        .upload-panel {
+            background: #eff6ff;
+            border: 2px dashed var(--primary-color);
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
         /* 検索カード */
         .search-card {
             background: var(--card-bg);
@@ -164,9 +178,7 @@
             color: #64748b;
         }
 
-        /* ==========================================
-           スマホ画面（幅768px以下）用のカード風レイアウト
-           ================================---------- */
+        /* スマホ画面（幅768px以下）用のカード風レイアウト */
         @media screen and (max-width: 768px) {
             table, thead, tbody, th, td, tr {
                 display: block;
@@ -184,9 +196,7 @@
                 padding: 12px;
                 box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             }
-            tr:hover {
-                background: #f8fafc;
-            }
+            tr:hover { background: #f8fafc; }
             td {
                 border: none !important;
                 padding: 4px 0 !important;
@@ -234,8 +244,21 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード検索</h1>
-        <div style="font-size: 0.8rem; color: #64748b;">GitHub共有中</div>
+        <div style="font-size: 0.8rem; color: #64748b;">スマホ対応版</div>
     </header>
+
+    <!-- 管理者用CSV読み込みパネル（ここでいつでも最新のCSVファイルを読み込めます） -->
+    <div class="upload-panel">
+        <div>
+            <strong>📁 CSVデータの更新・読込</strong>
+            <div style="font-size: 0.8rem; color: #475569;">新しいCSVファイルを選ぶと、その場でデータが更新されスマホにも保存されます。</div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="file" id="csv-file-input" accept=".csv" style="font-size: 0.85rem;">
+            <button onclick="handleFileUpload()">読み込む</button>
+        </div>
+    </div>
+    <div id="upload-status" style="font-size: 0.8rem; margin-bottom: 12px; color: var(--primary-color); text-align: right;"></div>
 
     <!-- 検索エリア（5項目） -->
     <div class="search-card">
@@ -261,7 +284,7 @@
                 <input type="text" id="s-schedule" placeholder="例: Ⅰ期" oninput="filterData()">
             </div>
         </div>
-        <div class="search-info" id="match-count">データを読み込んでいます...</div>
+        <div class="search-info" id="match-count">CSVファイルを読み込んでください</div>
     </div>
 
     <!-- 検索結果一覧 -->
@@ -278,7 +301,7 @@
                 </tr>
             </thead>
             <tbody id="result-body">
-                <tr><td colspan="6" id="status-msg">GitHubから「code.csv」を読み込んでいます...</td></tr>
+                <tr><td colspan="6" id="status-msg">上部のファイル選択から「code.csv」を選択して「読み込む」を押してください。</td></tr>
             </tbody>
         </table>
     </div>
@@ -313,21 +336,71 @@
     let allData = [];
     let savedList = [];
 
+    const DB_NAME = "UnivCodeDB_v3";
+    const STORE_NAME = "csvStore";
+    let db;
+
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                db = request.result;
+                loadDataFromDB();
+                resolve(db);
+            };
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                db.createObjectStore(STORE_NAME);
+            };
+        });
+    }
+
+    function saveDataToDB(data) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            store.put(data, "csvData");
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    function loadDataFromDB() {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get("csvData");
+        request.onsuccess = () => {
+            if (request.result && request.result.length > 0) {
+                allData = request.result;
+                document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
+                filterData();
+            }
+        };
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
-        loadGitHubCSV();
+        initDB().catch(err => console.error("DB Initialization error:", err));
     });
 
-    async function loadGitHubCSV() {
-        try {
-            // code.csv を読み込む設定
-            const response = await fetch('code.csv');
-            if (!response.ok) throw new Error("「code.csv」が見つかりませんでした。");
-            const text = await response.text();
-            parseCSV(text);
-        } catch (err) {
-            document.getElementById("status-msg").innerText = "エラー: " + err.message + " (GitHubに code.csv が正しくアップされているか確認してください)";
-            document.getElementById("match-count").innerText = "読み込み失敗";
+    function handleFileUpload() {
+        const fileInput = document.getElementById("csv-file-input");
+        if (fileInput.files.length === 0) {
+            alert("CSVファイルを選択してください");
+            return;
         }
+        const file = fileInput.files[0];
+        document.getElementById("upload-status").innerText = "読み込み中...";
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                parseCSV(e.target.result);
+            } catch (err) {
+                document.getElementById("upload-status").innerText = "エラー: " + err.message;
+            }
+        };
+        reader.readAsText(file, "UTF-8");
     }
 
     function parseCSV(text) {
@@ -371,8 +444,11 @@
         }
 
         allData = parsed;
-        document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
-        filterData();
+        saveDataToDB(allData).then(() => {
+            document.getElementById("upload-status").innerText = `完了！ ${allData.length.toLocaleString()} 件を保存しました。`;
+            document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
+            filterData();
+        });
     }
 
     function parseCSVLine(text) {
