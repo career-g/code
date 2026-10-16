@@ -19,7 +19,6 @@
             color: var(--text-color);
             margin: 0;
             padding: 16px;
-            -webkit-print-color-adjust: exact;
         }
         .container {
             max-width: 1200px;
@@ -51,22 +50,26 @@
             font-size: 0.9rem;
             transition: background 0.2s;
         }
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-        button.secondary {
-            background-color: #64748b;
-        }
-        button.secondary:hover {
-            background-color: #475569;
-        }
-        button.danger {
-            background-color: #dc2626;
-        }
-        button.danger:hover {
-            background-color: #b91c1c;
-        }
+        button:hover { background-color: var(--primary-hover); }
+        button.secondary { background-color: #64748b; }
+        button.secondary:hover { background-color: #475569; }
+        button.danger { background-color: #dc2626; }
+        button.danger:hover { background-color: #b91c1c; }
         
+        /* アップロードエリア */
+        .upload-card {
+            background: #eff6ff;
+            border: 2px dashed var(--primary-color);
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
         /* 検索カード */
         .search-card {
             background: var(--card-bg);
@@ -107,7 +110,7 @@
             text-align: right;
         }
 
-        /* 結果テーブル */
+        /* テーブル */
         .table-container {
             background: var(--card-bg);
             border-radius: 12px;
@@ -135,9 +138,7 @@
             color: #475569;
             font-weight: 600;
         }
-        tr:hover {
-            background: #f8fafc;
-        }
+        tr:hover { background: #f8fafc; }
         .code-cell {
             font-family: monospace;
             font-weight: bold;
@@ -145,7 +146,7 @@
             color: var(--primary-color);
         }
 
-        /* クリップボード（保存リスト）エリア */
+        /* 保存リストエリア */
         .clip-section {
             background: var(--card-bg);
             padding: 20px;
@@ -172,40 +173,6 @@
             font-size: 0.85rem;
             font-weight: bold;
         }
-
-        /* モーダル */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-        .modal-content {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .modal-content h3 { margin-top: 0; }
-        .modal-content input {
-            width: 100%;
-            padding: 8px 12px;
-            margin: 12px 0;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-
         #status-msg {
             text-align: center;
             padding: 40px;
@@ -218,10 +185,21 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引きツール</h1>
-        <div>
-            <button class="secondary" onclick="openLoginModal()">管理者ログイン</button>
-        </div>
+        <div style="font-size: 0.85rem; color: #64748b;">データ更新は下の枠からいつでも行えます</div>
     </header>
+
+    <!-- CSVアップロードカード（パスワードなしで直感的に更新可能） -->
+    <div class="upload-card">
+        <div>
+            <strong>📁 CSVデータの更新・読み込み</strong>
+            <div style="font-size: 0.82rem; color: #475569;">最新のCSVファイルを選択すると、瞬時にデータが更新されます。</div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="file" id="csv-file-input" accept=".csv" style="font-size: 0.85rem;">
+            <button onclick="handleFileUpload()">データを読み込む</button>
+        </div>
+    </div>
+    <div id="upload-status" style="font-size: 0.85rem; margin-bottom: 16px; color: var(--primary-color); text-align: right;"></div>
 
     <!-- 検索エリア（5項目） -->
     <div class="search-card">
@@ -247,7 +225,7 @@
                 <input type="text" id="s-schedule" placeholder="例: Ⅰ期 / Ａ日程" oninput="filterData()">
             </div>
         </div>
-        <div class="search-info" id="match-count">データを読み込んでください</div>
+        <div class="search-info" id="match-count">CSVファイルを読み込んでください</div>
     </div>
 
     <!-- 検索結果一覧 -->
@@ -264,7 +242,7 @@
                 </tr>
             </thead>
             <tbody id="result-body">
-                <tr><td colspan="6" id="status-msg">管理者ログインからCSVファイルを読み込んでください。</td></tr>
+                <tr><td colspan="6" id="status-msg">上の枠からCSVファイルを選択して「データを読み込む」を押してください。</td></tr>
             </tbody>
         </table>
     </div>
@@ -295,42 +273,12 @@
     </div>
 </div>
 
-<!-- ログインモーダル -->
-<div class="modal" id="login-modal">
-    <div class="modal-content">
-        <h3>管理者ログイン</h3>
-        <p style="font-size: 0.85rem; color: #64748b;">CSVデータを更新するためのパスワードを入力してください。</p>
-        <input type="password" id="admin-pass" placeholder="パスワード">
-        <div class="modal-buttons">
-            <button class="secondary" onclick="closeLoginModal()">キャンセル</button>
-            <button onclick="checkPassword()">ログイン</button>
-        </div>
-    </div>
-</div>
-
-<!-- アップロードモーダル -->
-<div class="modal" id="upload-modal">
-    <div class="modal-content" style="max-width: 450px;">
-        <h3>CSVデータ更新</h3>
-        <p style="font-size: 0.85rem; color: #64748b;">新しいCSVファイル（Sheet1またはSheet2形式）を選択してください。</p>
-        <input type="file" id="csv-file-input" accept=".csv" style="border: none; padding: 0;">
-        <div id="upload-status" style="font-size: 0.85rem; margin-top: 8px; color: var(--primary-color);"></div>
-        <div class="modal-buttons" style="margin-top: 16px;">
-            <button class="secondary" onclick="closeUploadModal()">閉じる</button>
-            <button onclick="handleFileUpload()">アップロードして保存</button>
-        </div>
-    </div>
-</div>
-
 <script>
-    // SHA-256 ハッシュ (初期パスワード "admin123" のハッシュ例。必要に応じて変更可)
-    const CORRECT_HASH = "ef92b778bafe771e89245b89ecbc08a44a4e166c0665911ee8dcfb9bcda53279"; // admin123
-
     let allData = [];
     let savedList = [];
 
-    // IndexedDB setup
-    const DB_NAME = "UnivCodeDB";
+    // IndexedDB setup for persistence
+    const DB_NAME = "UnivCodeDB_v2";
     const STORE_NAME = "csvStore";
     let db;
 
@@ -368,6 +316,7 @@
             if (request.result) {
                 allData = request.result;
                 document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
+                document.getElementById("match-count").innerText = `全 ${allData.length.toLocaleString()} 件`;
                 filterData();
             }
         };
@@ -377,34 +326,11 @@
         initDB().catch(err => console.error("DB Initialization error:", err));
     });
 
-    // モーダル操作
-    function openLoginModal() { document.getElementById("login-modal").style.display = "flex"; }
-    function closeLoginModal() { document.getElementById("login-modal").style.display = "none"; document.getElementById("admin-pass").value = ""; }
-    function closeUploadModal() { document.getElementById("upload-modal").style.display = "none"; }
-
-    async function sha256(message) {
-        const msgBuffer = new TextEncoder().encode(message);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async function checkPassword() {
-        const inputVal = document.getElementById("admin-pass").value;
-        const hash = await sha256(inputVal);
-        if (hash === CORRECT_HASH) {
-            closeLoginModal();
-            document.getElementById("upload-modal").style.display = "flex";
-        } else {
-            alert("パスワードが違います");
-        }
-    }
-
     // CSVパース処理
     function handleFileUpload() {
         const fileInput = document.getElementById("csv-file-input");
         if (fileInput.files.length === 0) {
-            alert("ファイルを選択してください");
+            alert("CSVファイルを選択してください");
             return;
         }
         const file = fileInput.files[0];
@@ -413,8 +339,7 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const text = e.target.result;
-                parseCSV(text);
+                parseCSV(e.target.result);
             } catch (err) {
                 document.getElementById("upload-status").innerText = "エラー: " + err.message;
             }
@@ -424,16 +349,12 @@
 
     function parseCSV(text) {
         const lines = text.split(/\r\n|\n/);
-        if (lines.length < 2) {
-            throw new Error("CSVデータが空か不正です");
-        }
+        if (lines.length < 2) throw new Error("CSVデータが空か不正です");
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
         
-        // カラムのインデックスを特定（Sheet1 または Sheet2 に対応）
         const colMap = {};
         headers.forEach((h, idx) => { colMap[h] = idx; });
 
-        // 必要な項目の列を探す
         const codeKey = Object.keys(colMap).find(k => k.includes('5桁コード') || k.includes('記入用大学コード'));
         const univKey = Object.keys(colMap).find(k => k === '大学名');
         const facKey = Object.keys(colMap).find(k => k === '学部名');
@@ -444,7 +365,6 @@
         const parsed = [];
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
-            // 簡易CSVパース（ダブルクォーテーション考慮）
             const row = parseCSVLine(lines[i]);
             if (row.length < headers.length) continue;
 
@@ -470,28 +390,18 @@
         allData = parsed;
         saveDataToDB(allData).then(() => {
             document.getElementById("upload-status").innerText = `完了！ ${allData.length.toLocaleString()} 件を保存しました。`;
-            setTimeout(() => {
-                closeUploadModal();
-                document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
-                filterData();
-            }, 1000);
+            document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
+            filterData();
         });
     }
 
     function parseCSVLine(text) {
-        let result = [];
-        let cur = '';
-        let inQuotes = false;
+        let result = [], cur = '', inQuotes = false;
         for (let i = 0; i < text.length; i++) {
             let c = text[i];
-            if (c === '"') {
-                inQuotes = !inQuotes;
-            } else if (c === ',' && !inQuotes) {
-                result.push(cur.trim().replace(/^"|"$/g, ''));
-                cur = '';
-            } else {
-                cur += c;
-            }
+            if (c === '"') { inQuotes = !inQuotes; }
+            else if (c === ',' && !inQuotes) { result.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
+            else { cur += c; }
         }
         result.push(cur.trim().replace(/^"|"$/g, ''));
         return result;
@@ -529,10 +439,9 @@
             return;
         }
 
-        // 多すぎる場合は最初の100件まで表示（ブラウザ保護）
         const displayList = list.slice(0, 100);
         let html = "";
-        displayList.forEach((item, idx) => {
+        displayList.forEach(item => {
             html += `
                 <tr>
                     <td class="code-cell">${item.code}</td>
@@ -550,9 +459,7 @@
         tbody.innerHTML = html;
     }
 
-    // 10件までのリスト管理
     function addToList(item) {
-        // 重複チェック
         if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.method === item.method)) {
             alert("この項目はすでにリストに登録されています。");
             return;
