@@ -261,10 +261,10 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引き</h1>
-        <div style="font-size: 0.75rem; color: #64748b;">数字除去・最新版</div>
+        <div style="font-size: 0.75rem; color: #64748b;">最新版</div>
     </header>
 
-    <!-- 検索エリア（5項目） -->
+    <!-- 検索エリア（4項目に整理） -->
     <div class="search-card">
         <div class="search-grid">
             <div class="search-field">
@@ -280,12 +280,8 @@
                 <input type="text" id="s-dept" placeholder="例: 物理" oninput="filterData()">
             </div>
             <div class="search-field">
-                <label>方式</label>
+                <label>日程方式名</label>
                 <input type="text" id="s-method" placeholder="例: 前期" oninput="filterData()">
-            </div>
-            <div class="search-field">
-                <label>日程</label>
-                <input type="text" id="s-schedule" placeholder="例: Ⅰ期" oninput="filterData()">
             </div>
         </div>
         <!-- 目立つ件数表示ボックス -->
@@ -342,8 +338,9 @@
         const univKey = Object.keys(colMap).find(k => k === '大学名');
         const facKey = Object.keys(colMap).find(k => k === '学部名');
         const deptKey = Object.keys(colMap).find(k => k === '学科名');
-        const methodKey = Object.keys(colMap).find(k => k.includes('日程方式名') || k.includes('方式名'));
-        const schedKey = Object.keys(colMap).find(k => k.includes('日程方式') || k.includes('回') || k.includes('日程'));
+        
+        // 日程方式名のみを取得（日程方式コードは除外）
+        const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
         const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
 
         const parsed = [];
@@ -356,8 +353,9 @@
             const univ = univKey !== undefined ? row[colMap[univKey]] : '';
             const fac = facKey !== undefined ? row[colMap[facKey]] : '';
             const dept = deptKey !== undefined ? row[colMap[deptKey]] : '';
-            const method = methodKey !== undefined ? row[colMap[methodKey]] : '';
-            const sched = schedKey !== undefined ? row[colMap[schedKey]] : '';
+            
+            // CSVにある日程方式名をそのまま保持
+            const methodName = methodNameKey !== undefined ? row[colMap[methodNameKey]] : '';
             const typeVal = typeKey !== undefined ? String(row[colMap[typeKey]]).trim() : '';
 
             if (code && code !== 'NaN') {
@@ -366,8 +364,7 @@
                     univ: univ && univ !== 'nan' ? univ : '',
                     fac: fac && fac !== 'nan' ? fac : '',
                     dept: dept && dept !== 'nan' && dept !== 'NaN' ? dept : '',
-                    method: method && method !== 'nan' ? method : '',
-                    sched: sched && sched !== 'nan' ? sched : '',
+                    methodName: methodName && methodName !== 'nan' ? methodName : '',
                     schoolType: typeVal
                 });
             }
@@ -390,19 +387,11 @@
         return result;
     }
 
-    // 数字やカッコを完全に消し去る強力な関数
-    function cleanMethodSchedule(method, sched) {
-        let text = method || '';
-        // 半角数字、全角数字、カッコ（半角・全角）をすべて削除
-        text = text.replace(/[0-9０-９\(（\)\）]/g, '');
-        return text.trim();
-    }
-
     function getBgClass(item) {
         const type = String(item.schoolType);
         if (type !== '1' && type !== '2') return "";
 
-        const text = (item.method + " " + item.sched).toLowerCase();
+        const text = item.methodName.toLowerCase();
         if (text.includes('前期')) return "bg-zenki";
         if (text.includes('中期')) return "bg-chuki";
         if (text.includes('後期')) return "bg-koki";
@@ -416,12 +405,11 @@
         const qFac = document.getElementById("s-fac").value.trim().toLowerCase();
         const qDept = document.getElementById("s-dept").value.trim().toLowerCase();
         const qMethod = document.getElementById("s-method").value.trim().toLowerCase();
-        const qSched = document.getElementById("s-schedule").value.trim().toLowerCase();
 
         const countBox = document.getElementById("match-count-box");
         const container = document.getElementById("result-container");
 
-        if (!qUniv && !qFac && !qDept && !qMethod && !qSched) {
+        if (!qUniv && !qFac && !qDept && !qMethod) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
             container.innerHTML = `<div class="guide-msg">🔍 上の検索窓から、大学名などを入力してください<br><span style="font-size:0.8rem; color:#64748b; font-weight:normal;">（例：「愛知」と入力すると、完全一致の愛知大学が最優先で表示されます）</span></div>`;
             return;
@@ -431,8 +419,7 @@
             if (qUniv && !item.univ.toLowerCase().startsWith(qUniv)) return false;
             if (qFac && !item.fac.toLowerCase().startsWith(qFac)) return false;
             if (qDept && !item.dept.toLowerCase().startsWith(qDept)) return false;
-            if (qMethod && !item.method.toLowerCase().startsWith(qMethod)) return false;
-            if (qSched && !item.sched.toLowerCase().startsWith(qSched)) return false;
+            if (qMethod && !item.methodName.toLowerCase().includes(qMethod)) return false;
             return true;
         });
 
@@ -469,12 +456,11 @@
         let pcHtml = "";
         displayList.forEach(item => {
             const bgClass = getBgClass(item);
-            const schedStr = cleanMethodSchedule(item.method, item.sched);
             pcHtml += `
                 <tr class="${bgClass}">
                     <td class="code-cell-pc">${item.code}</td>
                     <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
-                    <td><span class="card-badge">${schedStr}</span></td>
+                    <td><span class="card-badge">${item.methodName}</span></td>
                     <td style="text-align: center;"><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
                 </tr>
             `;
@@ -484,7 +470,6 @@
         displayList.forEach(item => {
             const bgClass = getBgClass(item);
             const deptStr = item.dept ? item.dept : '';
-            const schedStr = cleanMethodSchedule(item.method, item.sched);
             mobileHtml += `
                 <div class="mobile-card ${bgClass}">
                     <div class="card-code-area">
@@ -495,7 +480,7 @@
                         <div class="card-univ">${item.univ} ${item.fac}</div>
                         ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
                         <div class="card-meta">
-                            <span class="card-badge">${schedStr}</span>
+                            <span class="card-badge">${item.methodName}</span>
                         </div>
                     </div>
                 </div>
@@ -508,7 +493,7 @@
                     <tr>
                         <th>5桁コード</th>
                         <th>大学名・学部・学科名</th>
-                        <th>方式・日程</th>
+                        <th>日程方式名</th>
                         <th style="text-align: center;">操作</th>
                     </tr>
                 </thead>
@@ -521,7 +506,7 @@
     }
 
     function addToList(item) {
-        if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.method === item.method)) {
+        if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName)) {
             alert("この項目はすでにリストに登録されています。");
             return;
         }
@@ -550,12 +535,11 @@
         let pcHtml = "";
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
-            const schedStr = cleanMethodSchedule(item.method, item.sched);
             pcHtml += `
                 <tr class="${bgClass}">
                     <td class="code-cell-pc">${item.code}</td>
                     <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
-                    <td><span class="card-badge">${schedStr}</span></td>
+                    <td><span class="card-badge">${item.methodName}</span></td>
                     <td style="text-align: center;"><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
                 </tr>
             `;
@@ -565,7 +549,6 @@
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
             const deptStr = item.dept ? item.dept : '';
-            const schedStr = cleanMethodSchedule(item.method, item.sched);
             mobileHtml += `
                 <div class="mobile-card ${bgClass}">
                     <div class="card-code-area">
@@ -576,7 +559,7 @@
                         <div class="card-univ">${item.univ} ${item.fac}</div>
                         ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
                         <div class="card-meta">
-                            <span class="card-badge">${schedStr}</span>
+                            <span class="card-badge">${item.methodName}</span>
                         </div>
                     </div>
                 </div>
@@ -589,7 +572,7 @@
                     <tr>
                         <th>5桁コード</th>
                         <th>大学名・学部・学科名</th>
-                        <th>方式・日程</th>
+                        <th>日程方式名</th>
                         <th style="text-align: center;">操作</th>
                     </tr>
                 </thead>
