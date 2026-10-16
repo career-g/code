@@ -320,7 +320,7 @@
             backdrop-filter: blur(4px);
             max-width: 85vw;
             line-height: 1.5;
-            word-break: auto-phrase; /* ブラウザが自然な位置で改行するのを助ける */
+            word-break: auto-phrase;
         }
         #toast.show {
             opacity: 1;
@@ -396,7 +396,7 @@
         loadGitHubCSV();
     });
 
-    // トースト通知を表示する関数（画面中央・自然な改行）
+    // トースト通知を表示する関数（画面中央）
     function showToast(message, isError = false) {
         const toast = document.getElementById("toast");
         toast.innerText = message;
@@ -427,14 +427,14 @@
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
         
         const colMap = {};
-        headers.forEach((h, idx) => { colMap[h] = idx; });
+        headers.forEach((headerName, idx) => { colMap[headerName] = idx; });
 
-        const codeKey = Object.keys(colMap).find(k => k.includes('5桁コード') || k.includes('記入用大学コード'));
-        const univKey = Object.keys(colMap).find(k => k === '大学名');
-        const facKey = Object.keys(colMap).find(k => k === '学部名');
-        const deptKey = Object.keys(colMap).find(k === '学科名');
-        const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
-        const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
+        const codeKey = Object.keys(colMap).find(key => key.includes('5桁コード') || key.includes('記入用大学コード'));
+        const univKey = Object.keys(colMap).find(key => key === '大学名');
+        const facKey = Object.keys(colMap).find(key => key === '学部名');
+        const deptKey = Object.keys(colMap).find(key => key === '学科名');
+        const methodNameKey = Object.keys(colMap).find(key => key === '日程方式名');
+        const typeKey = Object.keys(colMap).find(key => key.includes('学校区分') || key.includes('設置区分') || key === '区分');
 
         const parsed = [];
         for (let i = 1; i < lines.length; i++) {
