@@ -261,7 +261,7 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引き</h1>
-        <div style="font-size: 0.75rem; color: #64748b;">方式表記スッキリ版</div>
+        <div style="font-size: 0.75rem; color: #64748b;">数字除去・最新版</div>
     </header>
 
     <!-- 検索エリア（5項目） -->
@@ -390,24 +390,16 @@
         return result;
     }
 
-    // カッコや数字を完全に除去し、純粋に「前期」「中期」「後期」などの文字だけにする関数
+    // 数字やカッコを完全に消し去る強力な関数
     function cleanMethodSchedule(method, sched) {
         let text = method || '';
-        // カッコと中の数字（例: (11) や （11） など）を完全に削除
-        text = text.replace(/[\(（]\d+[\)）]/g, '');
-        // もし日程側にも必要な情報があれば結合（ただし数字やカッコは除去）
-        if (sched) {
-            let cleanSched = String(sched).replace(/[\(（]\d+[\)）]/g, '').trim();
-            if (cleanSched && !text.includes(cleanSched)) {
-                text += " " + cleanSched;
-            }
-        }
+        // 半角数字、全角数字、カッコ（半角・全角）をすべて削除
+        text = text.replace(/[0-9０-９\(（\)\）]/g, '');
         return text.trim();
     }
 
     function getBgClass(item) {
         const type = String(item.schoolType);
-        // 国公立（1:国立、2:公立）のみ色付け
         if (type !== '1' && type !== '2') return "";
 
         const text = (item.method + " " + item.sched).toLowerCase();
