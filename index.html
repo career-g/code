@@ -39,6 +39,10 @@
             margin: 0;
             color: var(--primary-color);
         }
+        .header-sub {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
         button {
             background-color: var(--primary-color);
             color: white;
@@ -53,6 +57,7 @@
         button:hover { background-color: var(--primary-hover); }
         button.danger { background-color: #dc2626; }
         button.danger:hover { background-color: #b91c1c; }
+        .text-center { text-align: center; }
         
         /* 検索カード */
         .search-card {
@@ -109,6 +114,14 @@
             color: #2563eb;
             font-size: 1.05rem;
         }
+        .highlight-count.error {
+            color: #dc2626;
+        }
+        .count-sub-text {
+            font-size: 0.75rem;
+            font-weight: normal;
+            color: #64748b;
+        }
 
         /* テーブル・コンテナ */
         .table-container {
@@ -116,6 +129,10 @@
             margin-bottom: 16px;
             max-height: 500px;
             overflow-y: auto;
+        }
+        .clip-table-container {
+            max-height: 250px;
+            margin-bottom: 0;
         }
         table {
             width: 100%;
@@ -181,6 +198,18 @@
             font-size: 0.9rem;
             font-weight: 500;
         }
+        .guide-msg.error {
+            color: #dc2626;
+        }
+        .guide-msg.small {
+            padding: 15px;
+            font-size: 0.85rem;
+        }
+        .guide-sub-text {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: normal;
+        }
 
         /* 国公立（区分1・2）専用の日程別背景色 */
         .bg-zenki { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 国公立前期：薄い青 */
@@ -223,15 +252,19 @@
         .mobile-card-content {
             flex-grow: 1;
         }
-        .card-univ {
-            font-size: 0.95rem;
+        .card-univ-main {
             font-weight: bold;
             color: #0f172a;
-            margin-bottom: 1px;
+            font-size: 0.95rem;
+        }
+        .card-univ-fac {
+            font-weight: normal;
+            color: #475569;
+            margin-left: 6px;
         }
         .card-dept {
             font-size: 0.8rem;
-            color: #475569;
+            color: #64748b;
             margin-bottom: 3px;
         }
         .card-meta {
@@ -250,6 +283,47 @@
             font-weight: 600;
         }
 
+        /* テーブル内の文字スタイル整理 */
+        .td-univ-name {
+            font-weight: bold;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+        .td-fac-name {
+            font-weight: normal;
+            color: #475569;
+            margin-left: 6px;
+        }
+        .td-dept-name {
+            font-weight: normal;
+            color: #64748b;
+        }
+
+        /* トースト通知のスタイル */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #toast.error {
+            background-color: #dc2626;
+        }
+
         @media screen and (max-width: 768px) {
             #result-table, #clip-table { display: none !important; }
             .mobile-cards-wrapper { display: flex !important; }
@@ -261,10 +335,10 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引き</h1>
-        <div style="font-size: 0.75rem; color: #64748b;">最新版</div>
+        <div class="header-sub">最新版</div>
     </header>
 
-    <!-- 検索エリア（4項目に整理） -->
+    <!-- 検索エリア -->
     <div class="search-card">
         <div class="search-grid">
             <div class="search-field">
@@ -284,7 +358,6 @@
                 <input type="text" id="s-method" placeholder="例: 前期" oninput="filterData()">
             </div>
         </div>
-        <!-- 目立つ件数表示ボックス -->
         <div class="search-info-box" id="match-count-box">
             <span>データ読み込み中...</span>
         </div>
@@ -294,17 +367,20 @@
     <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
     <div class="table-container" id="result-container"></div>
 
-    <!-- クリップボード（最大10件記憶・スクショ用） -->
+    <!-- クリップボード -->
     <div class="clip-section">
         <div class="clip-header">
             <div class="clip-title">📋 転記用リスト（スクショ用・最大10件）</div>
             <div class="clip-count" id="clip-count">0 / 10件</div>
         </div>
-        <div class="table-container" id="clip-container" style="max-height: 250px; margin-bottom: 0;">
-            <div class="guide-msg" id="clip-empty-msg" style="padding: 15px; font-size: 0.85rem;">ここに保存した項目が並びます</div>
+        <div class="table-container clip-table-container" id="clip-container">
+            <div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>
         </div>
     </div>
 </div>
+
+<!-- トースト通知用の要素 -->
+<div id="toast"></div>
 
 <script>
     let allData = [];
@@ -313,6 +389,20 @@
     window.addEventListener("DOMContentLoaded", () => {
         loadGitHubCSV();
     });
+
+    // トースト通知を表示する関数
+    function showToast(message, isError = false) {
+        const toast = document.getElementById("toast");
+        toast.innerText = message;
+        toast.className = "show" + (isError ? " error" : "");
+        
+        // 既存のタイマーがあればクリア
+        if (window.toastTimer) clearTimeout(window.toastTimer);
+        
+        window.toastTimer = setTimeout(() => {
+            toast.className = "";
+        }, 2200);
+    }
 
     async function loadGitHubCSV() {
         try {
@@ -338,8 +428,6 @@
         const univKey = Object.keys(colMap).find(k => k === '大学名');
         const facKey = Object.keys(colMap).find(k => k === '学部名');
         const deptKey = Object.keys(colMap).find(k => k === '学科名');
-        
-        // 日程方式名のみを取得（日程方式コードは除外）
         const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
         const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
 
@@ -353,8 +441,6 @@
             const univ = univKey !== undefined ? row[colMap[univKey]] : '';
             const fac = facKey !== undefined ? row[colMap[facKey]] : '';
             const dept = deptKey !== undefined ? row[colMap[deptKey]] : '';
-            
-            // CSVにある日程方式名をそのまま保持
             const methodName = methodNameKey !== undefined ? row[colMap[methodNameKey]] : '';
             const typeVal = typeKey !== undefined ? String(row[colMap[typeKey]]).trim() : '';
 
@@ -411,7 +497,7 @@
 
         if (!qUniv && !qFac && !qDept && !qMethod) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍 上の検索窓から、大学名などを入力してください<br><span style="font-size:0.8rem; color:#64748b; font-weight:normal;">（例：「愛知」と入力すると、完全一致の愛知大学が最優先で表示されます）</span></div>`;
+            container.innerHTML = `<div class="guide-msg">🔍 上の検索窓から, 大学名などを入力してください<br><span class="guide-sub-text">（例：「愛知」と入力すると、完全一致の愛知大学が最優先で表示されます）</span></div>`;
             return;
         }
 
@@ -439,8 +525,8 @@
         const countBox = document.getElementById("match-count-box");
 
         if (list.length === 0) {
-            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count" style="color: #dc2626;">0 件</span>`;
-            container.innerHTML = `<div class="guide-msg" style="color: #dc2626;">条件に一致するデータが見つかりませんでした</div>`;
+            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count error">0 件</span>`;
+            container.innerHTML = `<div class="guide-msg error">条件に一致するデータが見つかりませんでした</div>`;
             return;
         }
 
@@ -448,7 +534,7 @@
         const displayCount = displayList.length;
 
         if (totalCount > 100) {
-            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${totalCount.toLocaleString()} 件 <span style="font-size:0.75rem; font-weight:normal; color:#64748b;">(最初の ${displayCount} 件を表示)</span></span>`;
+            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${totalCount.toLocaleString()} 件 <span class="count-sub-text">(最初の ${displayCount} 件を表示)</span></span>`;
         } else {
             countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${totalCount.toLocaleString()} 件</span>`;
         }
@@ -459,9 +545,13 @@
             pcHtml += `
                 <tr class="${bgClass}">
                     <td class="code-cell-pc">${item.code}</td>
-                    <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
+                    <td>
+                        <span class="td-univ-name">${item.univ}</span>
+                        ${item.fac ? `<span class="td-fac-name">${item.fac}</span>` : ''}
+                        ${item.dept ? `<span class="td-dept-name"> / ${item.dept}</span>` : ''}
+                    </td>
                     <td><span class="card-badge">${item.methodName}</span></td>
-                    <td style="text-align: center;"><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
+                    <td class="text-center"><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
                 </tr>
             `;
         });
@@ -477,7 +567,10 @@
                         <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
                     </div>
                     <div class="mobile-card-content">
-                        <div class="card-univ">${item.univ} ${item.fac}</div>
+                        <div class="card-univ">
+                            <span class="card-univ-main">${item.univ}</span>
+                            ${item.fac ? `<span class="card-univ-fac">${item.fac}</span>` : ''}
+                        </div>
                         ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
                         <div class="card-meta">
                             <span class="card-badge">${item.methodName}</span>
@@ -494,7 +587,7 @@
                         <th>5桁コード</th>
                         <th>大学名・学部・学科名</th>
                         <th>日程方式名</th>
-                        <th style="text-align: center;">操作</th>
+                        <th class="text-center">操作</th>
                     </tr>
                 </thead>
                 <tbody>${pcHtml}</tbody>
@@ -507,19 +600,21 @@
 
     function addToList(item) {
         if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName)) {
-            alert("この項目はすでにリストに登録されています。");
+            showToast("この項目はすでにリストに登録されています", true);
             return;
         }
         if (savedList.length >= 10) {
-            alert("保存リストは最大10件までです。不要な項目を削除してから追加してください。");
+            showToast("保存リストは最大10件までです", true);
             return;
         }
         savedList.push(item);
+        showToast("リストに保存しました");
         renderSavedList();
     }
 
     function removeFromList(index) {
         savedList.splice(index, 1);
+        showToast("リストから削除しました");
         renderSavedList();
     }
 
@@ -528,7 +623,7 @@
         document.getElementById("clip-count").innerText = `${savedList.length} / 10件`;
 
         if (savedList.length === 0) {
-            container.innerHTML = `<div class="guide-msg" style="padding: 15px; font-size: 0.85rem;">ここに保存した項目が並びます</div>`;
+            container.innerHTML = `<div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>`;
             return;
         }
 
@@ -538,9 +633,13 @@
             pcHtml += `
                 <tr class="${bgClass}">
                     <td class="code-cell-pc">${item.code}</td>
-                    <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
+                    <td>
+                        <span class="td-univ-name">${item.univ}</span>
+                        ${item.fac ? `<span class="td-fac-name">${item.fac}</span>` : ''}
+                        ${item.dept ? `<span class="td-dept-name"> / ${item.dept}</span>` : ''}
+                    </td>
                     <td><span class="card-badge">${item.methodName}</span></td>
-                    <td style="text-align: center;"><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
+                    <td class="text-center"><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
                 </tr>
             `;
         });
@@ -556,7 +655,10 @@
                         <button class="danger" onclick="removeFromList(${idx})">削除</button>
                     </div>
                     <div class="mobile-card-content">
-                        <div class="card-univ">${item.univ} ${item.fac}</div>
+                        <div class="card-univ">
+                            <span class="card-univ-main">${item.univ}</span>
+                            ${item.fac ? `<span class="card-univ-fac">${item.fac}</span>` : ''}
+                        </div>
                         ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
                         <div class="card-meta">
                             <span class="card-badge">${item.methodName}</span>
@@ -573,7 +675,7 @@
                         <th>5桁コード</th>
                         <th>大学名・学部・学科名</th>
                         <th>日程方式名</th>
-                        <th style="text-align: center;">操作</th>
+                        <th class="text-center">操作</th>
                     </tr>
                 </thead>
                 <tbody>${pcHtml}</tbody>
