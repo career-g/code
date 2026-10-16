@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1 大学入試 5桁コード逆引き・共有ツール</title>
+    <title>大学入試 5桁コード逆引き・共有ツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -171,7 +171,6 @@
             table, thead, tbody, th, td, tr {
                 display: block;
             }
-            /* ヘッダー（見出し行）は非表示にする */
             thead tr {
                 position: absolute;
                 top: -9999px;
@@ -193,7 +192,7 @@
                 padding: 4px 0 !important;
                 position: relative;
             }
-            /* 1行目：5桁コードと保存ボタンを横並びに目立たせる */
+            /* 1行目：5桁コードと保存ボタンを横並びに */
             td:nth-child(1) {
                 display: inline-block;
                 font-size: 1.2rem;
@@ -475,7 +474,7 @@
                 <tr>
                     <td class="code-cell">${item.code}</td>
                     <td>${item.univ}</td>
-                    <td>${item.fmtUniv || ''}</td>
+                    <td>${item.fac}</td>
                     <td>${item.dept || '-'}</td>
                     <td>${item.method} ${item.sched ? '(' + item.sched + ')' : ''}</td>
                     <td><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
