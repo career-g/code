@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大学5桁コード 逆引き検索・保存ツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse for fast CSV Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans JP', 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* High contrast for screenshot view */
+        .screenshot-card {
+            border: 2px solid #1e293b;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col pb-10">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-brand-600 p-2 rounded-lg text-white font-black text-xl tracking-wider">
+                    5<span class="text-xs">DIGIT</span>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base md:text-lg leading-tight">大学5桁コード 逆引き検索</h1>
+                    <p class="text-xs text-slate-400">模試・出願用コード高速検索 & 転記用メモ</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="adminBtn" onclick="toggleAdminModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg flex items-center gap-1.5 transition border border-slate-700">
+                    <i class="fa-solid fa-lock text-brand-500"></i>
+                    <span>管理者 (CSV更新)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-white border-b border-slate-200 sticky top-[57px] z-20 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 flex gap-2">
+            <button id="tabSearchBtn" onclick="switchTab('search')" class="py-3 px-4 font-bold text-sm border-b-2 border-brand-600 text-brand-600 flex items-center gap-2 transition">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>コード検索・絞り込み</span>
+            </button>
+            <button id="tabSavedBtn" onclick="switchTab('saved')" class="py-3 px-4 font-bold text-sm text-slate-500 border-b-2 border-transparent hover:text-slate-800 flex items-center gap-2 transition relative">
+                <i class="fa-solid fa-bookmark"></i>
+                <span>保存リスト (転記・スクショ用)</span>
+                <span id="savedBadge" class="bg-brand-600 text-white text-xs px-2 py-0.5 rounded-full font-bold ml-1">0/10</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-4 py-6 flex-grow w-full">
+
+        <!-- Dataset Status Indicator -->
+        <div id="statusBanner" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-database text-blue-600 text-sm"></i>
+                <span>現在のデータ: <strong id="datasetName" class="font-semibold">サンプルデータ (デモ用)</strong></span>
+                <span id="dataCount" class="bg-blue-200 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">0 件</span>
+            </div>
+            <span class="text-slate-500 hidden md:inline">※ブラウザ内に自動保存されます</span>
+        </div>
+
+        <!-- SEARCH TAB CONTENT -->
+        <section id="searchTab" class="space-y-4">
+            <!-- Search Filters Card -->
+            <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <h2 class="font-bold text-slate-800 text-sm md:text-base flex items-center gap-2">
+                        <i class="fa-solid fa-filter text-brand-600"></i> 前方一致・条件絞り込み
+                    </h2>
+                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                        <label class="flex items-center gap-1 cursor-pointer">
+                            <input type="checkbox" id="prefixMatchOnly" checked onchange="triggerSearch()" class="rounded text-brand-600 focus:ring-brand-500">
+                            <span>前方一致優先 (入力文字から始まる大学)</span>
+                        </label>
+                        <button onclick="clearFilters()" class="text-slate-400 hover:text-slate-600 ml-2 underline">条件クリア</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <!-- University Name Input -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">大学名 <span class="text-brand-600">(例: 名古屋)</span></label>
+                        <div class="relative">
+                            <input type="text" id="searchUniv" oninput="triggerSearch()" placeholder="名古屋, 北海道, Tokyo..."
+                                class="w-full bg-slate-50 border border-slate-300 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-200 rounded-xl px-3 py-2.5 text-sm font-medium transition outline-none pl-9">
+                            <i class="fa-solid fa-building-columns absolute left-3 top-3.5 text-slate-400 text-xs"></i>
+                        </div>
+                    </div>
+
+                    <!-- Faculty Name Input -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">学部名 <span class="text-brand-600">(例: 理)</span></label>
+                        <div class="relative">
+                            <input type="text" id="searchFaculty" oninput="triggerSearch()" placeholder="理, 工, 医, 文..."
+                                class="w-full bg-slate-50 border border-slate-300 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-200 rounded-xl px-3 py-2.5 text-sm font-medium transition outline-none pl-9">
+                            <i class="fa-solid fa-graduation-cap absolute left-3 top-3.5 text-slate-400 text-xs"></i>
+                        </div>
+                    </div>
+
+                    <!-- Department / Schedule Input -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">学科名 / 日程方式名</label>
+                        <div class="relative">
+                            <input type="text" id="searchDept" oninput="triggerSearch()" placeholder="物理, 前期, 一般..."
+                                class="w-full bg-slate-50 border border-slate-300 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-200 rounded-xl px-3 py-2.5 text-sm font-medium transition outline-none pl-9">
+                            <i class="fa-solid fa-book-open absolute left-3 top-3.5 text-slate-400 text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results Summary & Quick Stats -->
+            <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+                <div>検索結果: <span id="resultCount" class="font-bold text-slate-800 text-sm">0</span> 件 (上位100件表示)</div>
+                <div class="text-[11px] text-slate-400">💡 「+ 保存」ボタンで下部に最大10件追加できます</div>
+            </div>
+
+            <!-- Search Results List / Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100/80 border-b border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                                <th class="py-3 px-4 w-28">5桁コード</th>
+                                <th class="py-3 px-4">大学名</th>
+                                <th class="py-3 px-4">学部名</th>
+                                <th class="py-3 px-4">学科名 / 日程</th>
+                                <th class="py-3 px-4 text-right w-24">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Search results dynamically generated here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div id="noResultsState" class="hidden py-12 text-center text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass-triangle text-4xl mb-3 text-slate-300"></i>
+                    <p class="font-medium text-slate-600">該当するデータが見つかりませんでした</p>
+                    <p class="text-xs text-slate-400 mt-1">条件を短くして試すか、別のキーワードを入力してください</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SAVED LIST & SCREENSHOT TAB CONTENT -->
+        <section id="savedTab" class="hidden space-y-6">
+            <!-- Header bar for Saved Tab -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-camera text-brand-600"></i> 転記・スクリーンショット用メモ (最大10件)
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">この画面をそのままスマホで撮影またはスクショして、別の用紙に転記できます。</p>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <button onclick="copyAllCodes()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>コードを一括コピー</span>
+                    </button>
+                    <button onclick="clearSavedList()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-3 py-2 rounded-xl border border-rose-200 transition">
+                        <i class="fa-solid fa-trash"></i>
+                        <span>全消去</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- High-Contrast Screenshot-Optimized Container -->
+            <div id="screenshotArea" class="bg-slate-900 text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-brand-500 text-white font-black text-xs px-2 py-0.5 rounded">メモ・転記用</span>
+                        <h3 class="font-extrabold text-sm md:text-base tracking-wide text-slate-100">大学5桁記入コード一覧</h3>
+                    </div>
+                    <div class="text-xs text-slate-400 font-mono" id="screenshotDate"></div>
+                </div>
+
+                <!-- 10-Item Grid / Cards -->
+                <div id="savedCardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Cards rendered dynamically -->
+                </div>
+
+                <!-- Empty State for Saved Items -->
+                <div id="noSavedState" class="py-12 text-center text-slate-500">
+                    <i class="fa-regular fa-bookmark text-4xl mb-3 text-slate-600"></i>
+                    <p class="text-sm font-medium text-slate-300">保存された大学コードはありません</p>
+                    <p class="text-xs text-slate-500 mt-1">「検索・絞り込み」タブで必要な大学の「+ 保存」を押してください（最大10件）</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ADMIN MODAL (PASSWORD & CSV UPLOAD) -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-5 relative">
+            <button onclick="toggleAdminModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div class="bg-slate-100 p-2.5 rounded-xl text-slate-800">
+                    <i class="fa-solid fa-user-shield text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base">管理者設定 (データ更新)</h3>
+                    <p class="text-xs text-slate-500">パスワード認証後にCSVデータを上書き更新できます</p>
+                </div>
+            </div>
+
+            <!-- Password Form Area -->
+            <div id="authSection" class="space-y-3">
+                <label class="block text-xs font-bold text-slate-700">管理者パスワード</label>
+                <div class="relative">
+                    <input type="password" id="adminPasswordInput" placeholder="パスワードを入力..." 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div class="text-[11px] text-slate-400">※初期パスワードは <code class="bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-700">admin123</code> です</div>
+                <button onclick="authenticateAdmin()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                    認証する
+                </button>
+            </div>
+
+            <!-- CSV Upload Area (Hidden until authenticated) -->
+            <div id="uploadSection" class="hidden space-y-4">
+                <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                    <span>認証に成功しました。新しいCSVを選択してください。</span>
+                </div>
+
+                <div class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-50 hover:bg-brand-50/30"
+                     onclick="document.getElementById('csvFileInput').click()"
+                     ondragover="event.preventDefault()"
+                     ondrop="handleFileDrop(event)">
+                    <i class="fa-solid fa-file-csv text-3xl text-brand-600 mb-2"></i>
+                    <p class="text-sm font-bold text-slate-700">CSVファイルをここにドロップ</p>
+                    <p class="text-xs text-slate-400 mt-1">またはクリックしてファイルを選択</p>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-xl text-[11px] text-slate-500 space-y-1">
+                    <div class="font-bold text-slate-700">自動認識される列名:</div>
+                    <div>・<code>記入用5桁コード</code> または <code>記入用大学コード(５桁)</code></div>
+                    <div>・<code>大学名</code>, <code>学部名</code>, <code>学科名</code>, <code>日程方式名</code></div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-100 flex gap-2">
+                    <button onclick="resetToSampleData()" class="text-xs text-rose-600 hover:underline py-2">
+                        デモ用サンプルデータに戻す
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-brand-400"></i>
+        <span id="toastMessage">通知メッセージ</span>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Default Admin SHA-256 Hash for password "admin123"
+        const DEFAULT_ADMIN_HASH = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+        
+        // Sample Initial Dataset for immediate testing
+        const SAMPLE_DATASET = [
+            { code: "01010", univ: "北海道大学", faculty: "理学部", dept: "数学科 / 前期" },
+            { code: "01011", univ: "北海道大学", faculty: "理学部", dept: "物理学科 / 前期" },
+            { code: "01012", univ: "北海道大学", faculty: "工学部", dept: "情報エレクトロニクス学科" },
+            { code: "02100", univ: "名古屋大学", faculty: "理学部", dept: "数理学科 / 前期" },
+            { code: "02101", univ: "名古屋大学", faculty: "理学部", dept: "物理学科 / 前期" },
+            { code: "02102", univ: "名古屋大学", faculty: "工学部", dept: "電気電子情報工学科" },
+            { code: "02103", univ: "名古屋大学", faculty: "医学部", dept: "医学科 / 前期" },
+            { code: "02150", univ: "名古屋工業大学", faculty: "工学部", dept: "生命・応用化学科" },
+            { code: "02160", univ: "名古屋市立大学", faculty: "薬学部", dept: "薬学科 / 中期" },
+            { code: "02200", univ: "名古屋外国語大学", faculty: "外国語学部", dept: "英米語学科" },
+            { code: "02210", univ: "名古屋商科大学", faculty: "経営学部", dept: "経営学科" },
+            { code: "03001", univ: "東京大学", faculty: "理科一類", dept: "前期日程" },
+            { code: "03002", univ: "東京大学", faculty: "理科二類", dept: "前期日程" },
+            { code: "03003", univ: "京都大学", faculty: "理学部", dept: "理学科 / 前期" }
+        ];
+
+        // Global State
+        let dataset = [];
+        let savedItems = [];
+        let isAuthenticated = false;
+
+        // Initialize App on DOM Load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedItems();
+            loadDataset();
+            updateScreenshotDate();
+            triggerSearch();
+        });
+
+        // Switch Tabs
+        function switchTab(tab) {
+            const searchTab = document.getElementById('searchTab');
+            const savedTab = document.getElementById('savedTab');
+            const tabSearchBtn = document.getElementById('tabSearchBtn');
+            const tabSavedBtn = document.getElementById('tabSavedBtn');
+
+            if (tab === 'search') {
+                searchTab.classList.remove('hidden');
+                savedTab.classList.add('hidden');
+                tabSearchBtn.className = "py-3 px-4 font-bold text-sm border-b-2 border-brand-600 text-brand-600 flex items-center gap-2 transition";
+                tabSavedBtn.className = "py-3 px-4 font-bold text-sm text-slate-500 border-b-2 border-transparent hover:text-slate-800 flex items-center gap-2 transition relative";
+            } else {
+                searchTab.classList.add('hidden');
+                savedTab.classList.remove('hidden');
+                tabSavedBtn.className = "py-3 px-4 font-bold text-sm border-b-2 border-brand-600 text-brand-600 flex items-center gap-2 transition relative";
+                tabSearchBtn.className = "py-3 px-4 font-bold text-sm text-slate-500 border-b-2 border-transparent hover:text-slate-800 flex items-center gap-2 transition";
+                renderSavedCards();
+            }
+        }
+
+        // Search Engine Function
+        function triggerSearch() {
+            const univQuery = document.getElementById('searchUniv').value.trim().toLowerCase();
+            const facultyQuery = document.getElementById('searchFaculty').value.trim().toLowerCase();
+            const deptQuery = document.getElementById('searchDept').value.trim().toLowerCase();
+            const prefixOnly = document.getElementById('prefixMatchOnly').checked;
+
+            if (!dataset || dataset.length === 0) {
+                renderResults([]);
+                return;
+            }
+
+            const results = dataset.filter(item => {
+                // University Matching (Prefix or Included)
+                let univMatch = true;
+                if (univQuery) {
+                    const u = (item.univ || "").toLowerCase();
+                    univMatch = prefixOnly ? u.startsWith(univQuery) : u.includes(univQuery);
+                }
+
+                // Faculty Matching
+                let facultyMatch = true;
+                if (facultyQuery) {
+                    const f = (item.faculty || "").toLowerCase();
+                    facultyMatch = prefixOnly ? f.startsWith(facultyQuery) : f.includes(facultyQuery);
+                }
+
+                // Department / Schedule Matching
+                let deptMatch = true;
+                if (deptQuery) {
+                    const d = (item.dept || "").toLowerCase();
+                    deptMatch = d.includes(deptQuery);
+                }
+
+                return univMatch && facultyMatch && deptMatch;
+            });
+
+            renderResults(results.slice(0, 100), results.length);
+        }
+
+        // Render Search Results Table
+        function renderResults(results, totalCount = 0) {
+            const tbody = document.getElementById('resultsTableBody');
+            const noResults = document.getElementById('noResultsState');
+            document.getElementById('resultCount').textContent = totalCount;
+
+            tbody.innerHTML = '';
+
+            if (results.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            }
+
+            noResults.classList.add('hidden');
+
+            results.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition";
+
+                const isAlreadySaved = savedItems.some(s => s.code === item.code && s.univ === item.univ && s.faculty === item.faculty);
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono font-extrabold text-brand-700 text-base">${escapeHtml(item.code)}</td>
+                    <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.univ)}</td>
+                    <td class="py-3 px-4 font-medium text-slate-700">${escapeHtml(item.faculty || '-')}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500">${escapeHtml(item.dept || '-')}</td>
+                    <td class="py-3 px-4 text-right">
+                        ${isAlreadySaved 
+                            ? `<span class="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg font-bold border border-emerald-200"><i class="fa-solid fa-check"></i> 保存済</span>`
+                            : `<button onclick="saveItem('${escapeHtml(item.code)}', '${escapeHtml(item.univ)}', '${escapeHtml(item.faculty)}', '${escapeHtml(item.dept)}')" 
+                                class="bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white border border-brand-200 text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1 ml-auto">
+                                <i class="fa-solid fa-plus"></i> 保存
+                               </button>`
+                        }
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Clear Search Filters
+        function clearFilters() {
+            document.getElementById('searchUniv').value = '';
+            document.getElementById('searchFaculty').value = '';
+            document.getElementById('searchDept').value = '';
+            triggerSearch();
+        }
+
+        // Add Item to Saved List (Max 10)
+        function saveItem(code, univ, faculty, dept) {
+            if (savedItems.length >= 10) {
+                showToast("保存リストは最大10件までです", "warning");
+                return;
+            }
+
+            // Avoid duplicates
+            if (savedItems.some(s => s.code === code && s.univ === univ && s.faculty === faculty)) {
+                showToast("すでに保存されています", "info");
+                return;
+            }
+
+            savedItems.push({ code, univ, faculty, dept });
+            persistSavedItems();
+            updateSavedBadge();
+            triggerSearch(); // Refresh button states
+            showToast(`[${code}] ${univ} を保存しました`, "success");
+        }
+
+        // Remove Item from Saved List
+        function removeSavedItem(index) {
+            savedItems.splice(index, 1);
+            persistSavedItems();
+            updateSavedBadge();
+            renderSavedCards();
+            triggerSearch();
+            showToast("削除しました", "info");
+        }
+
+        // Render Saved Cards Grid for Screenshot View
+        function renderSavedCards() {
+            const grid = document.getElementById('savedCardsGrid');
+            const noSaved = document.getElementById('noSavedState');
+
+            grid.innerHTML = '';
+
+            if (savedItems.length === 0) {
+                noSaved.classList.remove('hidden');
+                return;
+            }
+
+            noSaved.classList.add('hidden');
+
+            savedItems.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = "screenshot-card bg-slate-800 p-3.5 rounded-xl flex items-center justify-between gap-3 relative shadow-md";
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-6 h-6 rounded-full bg-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center font-mono">
+                            ${idx + 1}
+                        </span>
+                        <div>
+                            <div class="text-xs text-slate-400 font-medium">${escapeHtml(item.univ)}</div>
+                            <div class="font-bold text-slate-100 text-sm">${escapeHtml(item.faculty)} <span class="text-xs text-slate-400 font-normal">${escapeHtml(item.dept || '')}</span></div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div class="bg-brand-600 text-white font-mono font-black text-xl px-3 py-1 rounded-lg tracking-wider border border-brand-400 shadow-inner">
+                            ${escapeHtml(item.code)}
+                        </div>
+                        <button onclick="removeSavedItem(${idx})" class="text-slate-500 hover:text-rose-400 p-1 transition" title="削除">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Clear All Saved Items
+        function clearSavedList() {
+            if (savedItems.length === 0) return;
+            if (confirm("保存リストをすべて消去しますか？")) {
+                savedItems = [];
+                persistSavedItems();
+                updateSavedBadge();
+                renderSavedCards();
+                triggerSearch();
+                showToast("保存リストをクリアしました", "info");
+            }
+        }
+
+        // Copy All 5-digit Codes to Clipboard
+        function copyAllCodes() {
+            if (savedItems.length === 0) {
+                showToast("保存されたデータがありません", "warning");
+                return;
+            }
+
+            const textToCopy = savedItems.map(s => `${s.code}\t${s.univ}\t${s.faculty}`).join('\n');
+            
+            // Fallback clipboard logic for iFrame environment
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            showToast("すべてのコードをクリップボードにコピーしました", "success");
+        }
+
+        // Update Saved Badge Count
+        function updateSavedBadge() {
+            const badge = document.getElementById('savedBadge');
+            badge.textContent = `${savedItems.length}/10`;
+            if (savedItems.length >= 10) {
+                badge.className = "bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-bold ml-1";
+            } else {
+                badge.className = "bg-brand-600 text-white text-xs px-2 py-0.5 rounded-full font-bold ml-1";
+            }
+        }
+
+        // Local Storage / IndexedDB Persistence Helpers
+        function persistSavedItems() {
+            localStorage.setItem('univ_app_saved_items', JSON.stringify(savedItems));
+        }
+
+        function loadSavedItems() {
+            const raw = localStorage.getItem('univ_app_saved_items');
+            if (raw) {
+                try { savedItems = JSON.parse(raw); } catch (e) { savedItems = []; }
+            }
+            updateSavedBadge();
+        }
+
+        function loadDataset() {
+            const stored = localStorage.getItem('univ_app_dataset');
+            const storedName = localStorage.getItem('univ_app_dataset_name');
+
+            if (stored) {
+                try {
+                    dataset = JSON.parse(stored);
+                    document.getElementById('datasetName').textContent = storedName || "アップロード済データ";
+                    document.getElementById('dataCount').textContent = `${dataset.length.toLocaleString()} 件`;
+                    return;
+                } catch (e) {
+                    console.error("Failed to parse stored dataset", e);
+                }
+            }
+
+            // Fallback to sample dataset
+            dataset = SAMPLE_DATASET;
+            document.getElementById('datasetName').textContent = "サンプルデータ (デモ用)";
+            document.getElementById('dataCount').textContent = `${dataset.length} 件`;
+        }
+
+        // ADMIN & AUTHENTICATION LOGIC (SHA-256)
+        function toggleAdminModal() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.toggle('hidden');
+        }
+
+        async function authenticateAdmin() {
+            const password = document.getElementById('adminPasswordInput').value;
+            if (!password) return;
+
+            // SHA-256 Hash using Web Crypto API
+            const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            if (hashHex === DEFAULT_ADMIN_HASH) {
+                isAuthenticated = true;
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('uploadSection').classList.remove('hidden');
+                showToast("管理者としてログインしました", "success");
+            } else {
+                showToast("パスワードが正しくありません", "warning");
+            }
+        }
+
+        // CSV PARSING LOGIC
+        function handleFileSelect(evt) {
+            const file = evt.target.files[0];
+            if (file) parseCSVFile(file);
+        }
+
+        function handleFileDrop(evt) {
+            evt.preventDefault();
+            const file = evt.dataTransfer.files[0];
+            if (file) parseCSVFile(file);
+        }
+
+        function parseCSVFile(file) {
+            showToast("CSVデータを解析中...", "info");
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (!results.data || results.data.length === 0) {
+                        showToast("有効なデータが見つかりませんでした", "warning");
+                        return;
+                    }
+
+                    const parsedDataset = [];
+
+                    results.data.forEach(row => {
+                        // Dynamic column resolution for flexibility
+                        const codeRaw = row['記入用5桁コード'] || row['記入用大学コード(５桁)'] || row['記入用コード'] || row['コード'] || '';
+                        const univ = row['大学名'] || row['大学名称'] || '';
+                        const faculty = row['学部名'] || row['学部名称'] || '';
+                        const dept = row['学科名'] || row['日程方式名'] || row['学科名称'] || '';
+
+                        if (univ && codeRaw) {
+                            // Ensure 5-digit zero-padded string format
+                            const codePadded = String(codeRaw).trim().padStart(5, '0');
+                            parsedDataset.push({
+                                code: codePadded,
+                                univ: String(univ).trim(),
+                                faculty: String(faculty).trim(),
+                                dept: String(dept).trim()
+                            });
+                        }
+                    });
+
+                    if (parsedDataset.length > 0) {
+                        dataset = parsedDataset;
+                        localStorage.setItem('univ_app_dataset', JSON.stringify(dataset));
+                        localStorage.setItem('univ_app_dataset_name', file.name);
+
+                        document.getElementById('datasetName').textContent = file.name;
+                        document.getElementById('dataCount').textContent = `${dataset.length.toLocaleString()} 件`;
+
+                        triggerSearch();
+                        toggleAdminModal();
+                        showToast(`データ更新完了! (${dataset.length.toLocaleString()}件)`, "success");
+                    } else {
+                        showToast("CSVから必要な項目(大学名・コード)を抽出できませんでした", "warning");
+                    }
+                },
+                error: function(err) {
+                    showToast("CSV読み込みエラーが発生しました", "warning");
+                }
+            });
+        }
+
+        function resetToSampleData() {
+            if (confirm("サンプルデータに戻しますか？")) {
+                localStorage.removeItem('univ_app_dataset');
+                localStorage.removeItem('univ_app_dataset_name');
+                loadDataset();
+                triggerSearch();
+                toggleAdminModal();
+                showToast("サンプルデータに戻しました", "info");
+            }
+        }
+
+        // Utility: Toast Notification
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = message;
+
+            if (type === "success") {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            } else if (type === "warning") {
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-info text-brand-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Utility: Escape HTML
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Set Current Date in Screenshot View
+        function updateScreenshotDate() {
+            const now = new Date();
+            document.getElementById('screenshotDate').textContent = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+        }
+    </script>
+</body>
+</html>
