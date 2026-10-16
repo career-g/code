@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大学入試 5桁コード検索</title>
+    <title>1大学入試 5桁コード逆引きツール</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -11,14 +11,14 @@
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-color: #1e293b;
-            --border-color: #cbd5e1;
+            --border-color: #e2e8f0;
         }
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 12px;
+            padding: 10px;
         }
         .container {
             max-width: 1200px;
@@ -28,14 +28,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             background: var(--card-bg);
-            padding: 14px 16px;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 12px 16px;
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         h1 {
-            font-size: 1.1rem;
+            font-size: 1rem;
             margin: 0;
             color: var(--primary-color);
         }
@@ -43,99 +43,100 @@
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 8px 14px;
+            padding: 6px 12px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             transition: background 0.2s;
         }
         button:hover { background-color: var(--primary-hover); }
-        button.secondary { background-color: #64748b; }
-        button.secondary:hover { background-color: #475569; }
         button.danger { background-color: #dc2626; }
         button.danger:hover { background-color: #b91c1c; }
         
         /* 検索カード */
         .search-card {
             background: var(--card-bg);
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 16px;
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            margin-bottom: 12px;
         }
         .search-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-bottom: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
         }
         .search-field label {
             display: block;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: bold;
-            margin-bottom: 4px;
-            color: #475569;
+            margin-bottom: 3px;
+            color: #64748b;
         }
         .search-field input {
             width: 100%;
-            padding: 8px 10px;
+            padding: 7px 10px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             box-sizing: border-box;
+            background: #f8fafc;
         }
         .search-field input:focus {
             outline: none;
             border-color: var(--primary-color);
+            background: #fff;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
         .search-info {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #64748b;
             text-align: right;
         }
 
-        /* テーブル */
+        /* リスト・テーブル共通コンテナ */
         .table-container {
-            background: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            max-height: 450px;
+            background: transparent;
+            margin-bottom: 16px;
+            max-height: 500px;
             overflow-y: auto;
         }
+        
+        /* デスクトップ用テーブル */
         table {
             width: 100%;
             border-collapse: collapse;
-            text-align: left;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             font-size: 0.85rem;
         }
         th, td {
             padding: 10px 12px;
             border-bottom: 1px solid #f1f5f9;
+            text-align: left;
         }
         th {
             background: #f8fafc;
-            position: sticky;
-            top: 0;
-            z-index: 10;
             color: #475569;
             font-weight: 600;
         }
-        .code-cell {
+        .code-cell-pc {
             font-family: monospace;
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: var(--primary-color);
         }
 
         /* 保存リストエリア */
         .clip-section {
             background: var(--card-bg);
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             border: 2px dashed var(--primary-color);
             margin-bottom: 20px;
         }
@@ -143,84 +144,92 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .clip-title {
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 0.9rem;
             color: var(--primary-color);
         }
         .clip-count {
             background: #dbeafe;
             color: #1e40af;
             padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
             font-weight: bold;
         }
         #status-msg {
             text-align: center;
-            padding: 30px;
+            padding: 24px;
             color: #64748b;
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
-        /* スマホ画面（幅768px以下）用のカード風レイアウト */
+        /* ==========================================
+           スマホ用カードレイアウト（逆引き・コード後まわし）
+           ========================================== */
         @media screen and (max-width: 768px) {
-            table, thead, tbody, th, td, tr {
-                display: block;
+            table, thead, tbody, th, tr {
+                display: none; /* スマホではテーブルタグを隠してカードを表示 */
             }
-            thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
+            .table-container {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                max-height: none;
             }
-            tr {
+            .mobile-card {
                 background: #ffffff;
                 border: 1px solid var(--border-color);
                 border-radius: 10px;
-                margin: 10px;
                 padding: 12px;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
             }
-            tr:hover { background: #f8fafc; }
-            td {
-                border: none !important;
-                padding: 4px 0 !important;
-                position: relative;
+            .mobile-card-content {
+                flex-grow: 1;
             }
-            td:nth-child(1) {
-                display: inline-block;
-                font-size: 1.2rem;
-                margin-bottom: 6px;
-            }
-            td:nth-child(6) {
-                float: right;
-                padding: 0 !important;
-            }
-            td:nth-child(2), td:nth-child(3) {
-                display: inline-block;
-                font-weight: bold;
+            .card-univ {
                 font-size: 0.95rem;
-                color: #334155;
+                font-weight: bold;
+                color: #0f172a;
+                margin-bottom: 2px;
             }
-            td:nth-child(2)::after {
-                content: " ／ ";
-                color: #94a3b8;
-            }
-            td:nth-child(4) {
-                display: block;
-                font-size: 0.85rem;
+            .card-dept {
+                font-size: 0.8rem;
                 color: #475569;
-                margin-top: 2px;
+                margin-bottom: 4px;
             }
-            td:nth-child(5) {
-                display: block;
-                font-size: 0.85rem;
-                color: var(--primary-color);
-                background: #eff6ff;
-                padding: 4px 8px !important;
+            .card-meta {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .card-badge {
+                background: #f1f5f9;
+                color: #334155;
+                font-size: 0.7rem;
+                padding: 2px 6px;
                 border-radius: 4px;
-                margin-top: 6px;
+            }
+            /* コードを後ろに・大きく目立たせる */
+            .card-code-area {
+                text-align: right;
+                min-width: 80px;
+            }
+            .card-code {
+                font-family: monospace;
+                font-size: 1.15rem;
+                font-weight: bold;
+                color: var(--primary-color);
+                margin-bottom: 4px;
             }
         }
     </style>
@@ -229,8 +238,8 @@
 
 <div class="container">
     <header>
-        <h1>大学入試 5桁コード検索</h1>
-        <div style="font-size: 0.8rem; color: #64748b;">GitHub自動同期中</div>
+        <h1>大学入試 5桁コード逆引き</h1>
+        <div style="font-size: 0.75rem; color: #64748b;">逆引き最適化版</div>
     </header>
 
     <!-- 検索エリア（5項目） -->
@@ -257,26 +266,25 @@
                 <input type="text" id="s-schedule" placeholder="例: Ⅰ期" oninput="filterData()">
             </div>
         </div>
-        <div class="search-info" id="match-count">GitHubからデータを読み込んでいます...</div>
+        <div class="search-info" id="match-count">データを読み込んでいます...</div>
     </div>
 
     <!-- 検索結果一覧 -->
-    <div class="table-container">
+    <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
+    <div class="table-container" id="result-container">
+        <!-- デスクトップ用テーブル -->
         <table id="result-table">
             <thead>
                 <tr>
-                    <th>5桁コード</th>
-                    <th>大学名</th>
-                    <th>学部名</th>
-                    <th>学科名</th>
+                    <th>大学名・学部・学科名</th>
                     <th>方式・日程</th>
-                    <th>操作</th>
+                    <th>5桁コード</th>
+                    <th style="text-align: center;">操作</th>
                 </tr>
             </thead>
-            <tbody id="result-body">
-                <tr><td colspan="6" id="status-msg">GitHubから「code.csv」を読み込んでいます...</td></tr>
-            </tbody>
+            <tbody id="result-body"></tbody>
         </table>
+        <!-- スマホ用カードリストがここに動的に入ります -->
     </div>
 
     <!-- クリップボード（最大10件記憶・スクショ用） -->
@@ -285,20 +293,18 @@
             <div class="clip-title">📋 転記用リスト（スクショ用・最大10件）</div>
             <div class="clip-count" id="clip-count">0 / 10件</div>
         </div>
-        <div class="table-container" style="max-height: 220px; margin-bottom: 0; background: white;">
-            <table>
+        <div class="table-container" style="max-height: 200px; margin-bottom: 0;">
+            <table id="clip-table">
                 <thead>
                     <tr>
-                        <th>5桁コード</th>
-                        <th>大学名</th>
-                        <th>学部名</th>
-                        <th>学科名</th>
+                        <th>大学名・学部・学科名</th>
                         <th>方式・日程</th>
-                        <th>操作</th>
+                        <th>5桁コード</th>
+                        <th style="text-align: center;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="clip-body">
-                    <tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 15px;">ここに保存した項目が並びます（最大10件）</td></tr>
+                    <tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 15px;">ここに保存した項目が並びます</td></tr>
                 </tbody>
             </table>
         </div>
@@ -315,7 +321,6 @@
 
     async function loadGitHubCSV() {
         try {
-            // 相対パスを確実に解決してGitHubから取得する
             const response = await fetch('./code.csv', { cache: 'no-store' });
             if (!response.ok) throw new Error("「code.csv」が見つかりませんでした。");
             const text = await response.text();
@@ -367,7 +372,7 @@
         }
 
         allData = parsed;
-        document.getElementById("status-msg").innerText = `データを読み込みました（全 ${allData.length.toLocaleString()} 件）`;
+        document.getElementById("status-msg").style.display = "none";
         filterData();
     }
 
@@ -406,32 +411,90 @@
 
     function renderResults(list) {
         const tbody = document.getElementById("result-body");
+        const container = document.getElementById("result-container");
         const countDiv = document.getElementById("match-count");
         countDiv.innerText = `該当件数: ${list.length.toLocaleString()} 件`;
 
         if (list.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 30px;">条件に一致するデータが見つかりません</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px;">条件に一致するデータが見つかりません</td></tr>`;
+            container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 20px; background: white; border-radius: 10px;">条件に一致するデータが見つかりません</div>`;
             return;
         }
 
         const displayList = list.slice(0, 100);
-        let html = "";
+        
+        // PC用テーブルのHTML
+        let pcHtml = "";
         displayList.forEach(item => {
-            html += `
+            const place = `${item.univ} ${item.fac} ${item.dept ? '/ ' + item.dept : ''}`;
+            const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
+            pcHtml += `
                 <tr>
-                    <td class="code-cell">${item.code}</td>
-                    <td>${item.univ}</td>
-                    <td>${item.fac}</td>
-                    <td>${item.dept || '-'}</td>
-                    <td>${item.method} ${item.sched ? '(' + item.sched + ')' : ''}</td>
-                    <td><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
+                    <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
+                    <td><span class="card-badge">${schedStr}</span></td>
+                    <td class="code-cell-pc">${item.code}</td>
+                    <td style="text-align: center;"><button onclick='addToList(${JSON.stringify(item)})'>保存</button></td>
                 </tr>
             `;
         });
+        tbody.innerHTML = pcHtml;
+
+        // スマホ用カードのHTML（逆引き：大学・学部が先、コードが後）
+        let mobileHtml = "";
+        displayList.forEach(item => {
+            const deptStr = item.dept ? item.dept : '';
+            const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
+            mobileHtml += `
+                <div class="mobile-card">
+                    <div class="mobile-card-content">
+                        <div class="card-univ">${item.univ} ${item.fac}</div>
+                        ${deptStr ? `<div class="card-dept">${deptStr}</div>` : ''}
+                        <div class="card-meta">
+                            <span class="card-badge">${schedStr}</span>
+                        </div>
+                    </div>
+                    <div class="card-code-area">
+                        <div class="card-code">${item.code}</div>
+                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        // 画面幅に応じて切り替わるようにテーブルとカードを両方更新
+        let wrapperHtml = `
+            <table id="result-table">
+                <thead>
+                    <tr>
+                        <th>大学名・学部・学科名</th>
+                        <th>方式・日程</th>
+                        <th>5桁コード</th>
+                        <th style="text-align: center;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>${pcHtml}</tbody>
+            </table>
+            <div class="mobile-cards-wrapper" style="display:none; flex-direction:column; gap:8px;">
+                ${mobileHtml}
+            </div>
+        `;
+        
+        container.innerHTML = wrapperHtml;
+        
+        // 簡易的にスマホ表示時はカード群を表示するスタイル調整
+        const styleTag = document.getElementById("dynamic-style") || document.createElement('style');
+        styleTag.id = "dynamic-style";
+        styleTag.innerHTML = `
+            @media screen and (max-width: 768px) {
+                #result-table { display: none !important; }
+                .mobile-cards-wrapper { display: flex !important; }
+            }
+        `;
+        document.head.appendChild(styleTag);
+
         if (list.length > 100) {
-            html += `<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 10px;">※件数が多いため最初の100件を表示しています。さらに絞り込んでください。</td></tr>`;
+            countDiv.innerText += ` (最初の100件を表示)`;
         }
-        tbody.innerHTML = html;
     }
 
     function addToList(item) {
@@ -457,20 +520,19 @@
         document.getElementById("clip-count").innerText = `${savedList.length} / 10件`;
 
         if (savedList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 20px;">ここに保存した項目が並びます（最大10件）</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 15px;">ここに保存した項目が並びます</td></tr>`;
             return;
         }
 
         let html = "";
         savedList.forEach((item, idx) => {
+            const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
             html += `
                 <tr>
-                    <td class="code-cell">${item.code}</td>
-                    <td>${item.univ}</td>
-                    <td>${item.fac}</td>
-                    <td>${item.dept || '-'}</td>
-                    <td>${item.method} ${item.sched ? '(' + item.sched + ')' : ''}</td>
-                    <td><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
+                    <td><strong>${item.univ}</strong> ${item.fac} ${item.dept ? ' / ' + item.dept : ''}</td>
+                    <td><span class="card-badge">${schedStr}</span></td>
+                    <td class="code-cell-pc">${item.code}</td>
+                    <td style="text-align: center;"><button class="danger" onclick="removeFromList(${idx})">削除</button></td>
                 </tr>
             `;
         });
