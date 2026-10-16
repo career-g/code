@@ -123,7 +123,7 @@
             color: #64748b;
         }
 
-        /* アコーディオン・グループリスト */
+        /* 大学別アコーディオン・グループ */
         .univ-group {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -169,17 +169,39 @@
         .univ-group.open .univ-arrow {
             transform: rotate(180deg);
         }
+        
+        /* 大学コンテンツ（開閉対象） */
         .univ-content {
             display: none;
-            padding: 6px;
+            padding: 8px;
             background: #ffffff;
             border-top: 1px solid #f1f5f9;
-            display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
         .univ-group.open .univ-content {
             display: flex;
+        }
+
+        /* 学部ごとのまとまり */
+        .fac-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px 8px;
+        }
+        .fac-title {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #334155;
+            margin-bottom: 4px;
+            padding-bottom: 2px;
+            border-bottom: 1px dashed #cbd5e1;
+        }
+        .fac-cards-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
         /* テーブル・コンテナ */
@@ -241,34 +263,34 @@
         }
 
         /* 国公立の日程別背景色 */
-        .bg-zenki  { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 前期：薄い青 */
-        .bg-chuki  { background-color: #fefce8 !important; border-color: #fef08a !important; } /* 中期：薄い黄色 */
-        .bg-koki   { background-color: #fef2f2 !important; border-color: #fecaca !important; } /* 後期：薄い赤 */
-        .bg-dokuji { background-color: #f3e8ff !important; border-color: #d8b4fe !important; } /* 独自日程：薄い紫 */
+        .bg-zenki  { background-color: #eff6ff !important; border-color: #bfdbfe !important; }
+        .bg-chuki  { background-color: #fefce8 !important; border-color: #fef08a !important; }
+        .bg-koki   { background-color: #fef2f2 !important; border-color: #fecaca !important; }
+        .bg-dokuji { background-color: #f3e8ff !important; border-color: #d8b4fe !important; }
 
-        /* カードレイアウト */
+        /* 個別カードレイアウト */
         .sub-card {
             background: #ffffff;
             border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 6px 10px;
+            border-radius: 5px;
+            padding: 5px 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 6px;
         }
         .sub-card-code-area {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-width: 65px;
+            min-width: 60px;
             padding-right: 6px;
             border-right: 1px solid rgba(0,0,0,0.08);
         }
         .sub-card-code {
             font-family: monospace;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: bold;
             color: #1d4ed8;
             margin-bottom: 1px;
@@ -277,7 +299,7 @@
             flex-grow: 1;
         }
         .sub-card-main {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: bold;
             color: #0f172a;
             margin-bottom: 1px;
@@ -448,7 +470,7 @@
                 parsed.push({
                     code: String(code).replace(/\.0$/, '').padStart(5, '0'),
                     univ: univ && univ !== 'nan' ? univ : '',
-                    fac: fac && fac !== 'nan' ? fac : '',
+                    fac: fac && fac !== 'nan' ? fac : '学部なし',
                     dept: dept && dept !== 'nan' && dept !== 'NaN' ? dept : '',
                     methodName: methodName && methodName !== 'nan' ? methodName : '',
                     schoolType: typeVal
@@ -535,19 +557,20 @@
 
         countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
 
-        const grouped = {};
+        // 1. 大学ごとにグルーピング
+        const univGrouped = {};
         list.forEach(item => {
-            if (!grouped[item.univ]) {
-                grouped[item.univ] = [];
+            if (!univGrouped[item.univ]) {
+                univGrouped[item.univ] = [];
             }
-            grouped[item.univ].push(item);
+            univGrouped[item.univ].push(item);
         });
 
-        const univNames = Object.keys(grouped);
+        const univNames = Object.keys(univGrouped);
         let html = '';
 
         univNames.forEach((univName, index) => {
-            const items = grouped[univName];
+            const univItems = univGrouped[univName];
             const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
             let isOpen = false;
             if (qUniv) {
@@ -556,21 +579,44 @@
                 if (index === 0) isOpen = true;
             }
 
-            let cardsHtml = '';
-            items.forEach(item => {
-                const bgClass = getBgClass(item);
-                const deptStr = item.dept ? ` / ${item.dept}` : '';
-                cardsHtml += `
-                    <div class="sub-card ${bgClass}">
-                        <div class="sub-card-code-area">
-                            <div class="sub-card-code">${item.code}</div>
-                            <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
-                        </div>
-                        <div class="sub-card-content">
-                            <div class="sub-card-main">${item.fac}${deptStr}</div>
-                            <div class="sub-card-meta">
-                                <span class="sub-card-badge">${item.methodName}</span>
+            // 2. その大学の中でさらに「学部ごと」にグルーピング
+            const facGrouped = {};
+            univItems.forEach(item => {
+                if (!facGrouped[item.fac]) {
+                    facGrouped[item.fac] = [];
+                }
+                facGrouped[item.fac].push(item);
+            });
+
+            let facHtml = '';
+            Object.keys(facGrouped).forEach(facName => {
+                const facItems = facGrouped[facName];
+                let cardsHtml = '';
+                
+                facItems.forEach(item => {
+                    const bgClass = getBgClass(item);
+                    const deptStr = item.dept ? item.dept : '';
+                    cardsHtml += `
+                        <div class="sub-card ${bgClass}">
+                            <div class="sub-card-code-area">
+                                <div class="sub-card-code">${item.code}</div>
+                                <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
                             </div>
+                            <div class="sub-card-content">
+                                ${deptStr ? `<div class="sub-card-main">${deptStr}</div>` : ''}
+                                <div class="sub-card-meta">
+                                    <span class="sub-card-badge">${item.methodName}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                facHtml += `
+                    <div class="fac-section">
+                        <div class="fac-title">${facName}</div>
+                        <div class="fac-cards-wrapper">
+                            ${cardsHtml}
                         </div>
                     </div>
                 `;
@@ -581,12 +627,12 @@
                     <div class="univ-header" onclick="toggleUnivGroup(${index})">
                         <div class="univ-header-left">
                             <span>${univName}</span>
-                            <span class="univ-count-badge">${items.length}件</span>
+                            <span class="univ-count-badge">${univItems.length}件</span>
                         </div>
                         <div class="univ-arrow">▼</div>
                     </div>
                     <div class="univ-content">
-                        ${cardsHtml}
+                        ${facHtml}
                     </div>
                 </div>
             `;
@@ -599,10 +645,12 @@
         const targetGroup = document.getElementById(`univ-group-${index}`);
         const isOpen = targetGroup.classList.contains('open');
 
+        // 他をすべて閉じる
         document.querySelectorAll('.univ-group').forEach(group => {
             group.classList.remove('open');
         });
 
+        // 閉じていた場合のみ開く
         if (!isOpen) {
             targetGroup.classList.add('open');
         }
