@@ -182,10 +182,10 @@
             font-weight: 500;
         }
 
-        /* 日程方式別の背景色クラス */
-        .bg-zenki { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 薄い青 */
-        .bg-chuki { background-color: #fefce8 !important; border-color: #fef08a !important; } /* 薄い黄色 */
-        .bg-koki  { background-color: #fef2f2 !important; border-color: #fecaca !important; } /* 薄い赤 */
+        /* 国公立（区分1・2）専用の日程別背景色 */
+        .bg-zenki { background-color: #eff6ff !important; border-color: #bfdbfe !important; } /* 国公立前期：薄い青 */
+        .bg-chuki { background-color: #fefce8 !important; border-color: #fef08a !important; } /* 国公立中期：薄い黄色 */
+        .bg-koki  { background-color: #fef2f2 !important; border-color: #fecaca !important; } /* 国公立後期：薄い赤 */
 
         /* スマホ用カードレイアウト */
         @media screen and (max-width: 768px) {
@@ -199,6 +199,7 @@
                 max-height: none;
             }
             .mobile-card {
+                background: #ffffff;
                 border: 1px solid var(--border-color);
                 border-radius: 10px;
                 padding: 10px 12px;
@@ -245,7 +246,7 @@
                 align-items: center;
             }
             .card-badge {
-                background: rgba(255, 255, 255, 0.7);
+                background: rgba(255, 255, 255, 0.75);
                 border: 1px solid rgba(0,0,0,0.08);
                 color: #334155;
                 font-size: 0.7rem;
@@ -261,7 +262,7 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引き</h1>
-        <div style="font-size: 0.75rem; color: #64748b;">完全一致優先・最適化版</div>
+        <div style="font-size: 0.75rem; color: #64748b;">国公立色分け・最適化版</div>
     </header>
 
     <!-- 検索エリア（5項目） -->
@@ -338,7 +339,7 @@
             parseCSV(text);
         } catch (err) {
             document.getElementById("status-msg").innerText = "エラー: " + err.message + " (GitHub上のファイル配置をご確認ください)";
-            document.getElementById("match-count-box.innerHTML").innerText = "読み込み失敗";
+            document.getElementById("match-count-box").innerText = "読み込み失敗";
         }
     }
 
@@ -356,6 +357,7 @@
         const deptKey = Object.keys(colMap).find(k => k === '学科名');
         const methodKey = Object.keys(colMap).find(k => k.includes('日程方式名') || k.includes('方式名'));
         const schedKey = Object.keys(colMap).find(k => k.includes('日程方式') || k.includes('回') || k.includes('日程'));
+        const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
 
         const parsed = [];
         for (let i = 1; i < lines.length; i++) {
@@ -369,6 +371,7 @@
             const dept = deptKey !== undefined ? row[colMap[deptKey]] : '';
             const method = methodKey !== undefined ? row[colMap[methodKey]] : '';
             const sched = schedKey !== undefined ? row[colMap[schedKey]] : '';
+            const typeVal = typeKey !== undefined ? String(row[colMap[typeKey]]).trim() : '';
 
             if (code && code !== 'NaN') {
                 parsed.push({
@@ -377,7 +380,8 @@
                     fac: fac && fac !== 'nan' ? fac : '',
                     dept: dept && dept !== 'nan' && dept !== 'NaN' ? dept : '',
                     method: method && method !== 'nan' ? method : '',
-                    sched: sched && sched !== 'nan' ? sched : ''
+                    sched: sched && sched !== 'nan' ? sched : '',
+                    schoolType: typeVal // 1: 国立, 2: 公立, 3: 私立
                 });
             }
         }
@@ -399,12 +403,22 @@
         return result;
     }
 
-    function getBgClass(methodText) {
-        if (!methodText) return "";
-        const m = methodText.toLowerCase();
-        if (m.includes('前期')) return "bg-zenki";
-        if (m.includes('中期')) return "bg-chuki";
-        if (m.includes('後期')) return "bg-koki";
+    // カッコとその中身（例: (11), (13) など）を除去して整形する関数
+    function cleanMethodSchedule(method, sched) {
+        let combined = [method, sched].filter(Boolean).join(' ');
+        return combined.replace(/\s*\(\d+\)/g, '').trim();
+    }
+
+    // 国公立（区分 1 または 2）のみ色付けの判定関数
+    function getBgClass(item) {
+        const type = String(item.schoolType);
+        // 学校区分が 1(国立) か 2(公立) でない場合は色塗りしない（私立3や短大・専門など）
+        if (type !== '1' && type !== '2') return "";
+
+        const text = (item.method + " " + item.sched).toLowerCase();
+        if (text.includes('前期')) return "bg-zenki";
+        if (text.includes('中期')) return "bg-chuki";
+        if (text.includes('後期')) return "bg-koki";
         return "";
     }
 
@@ -436,7 +450,7 @@
             return true;
         });
 
-        // 完全一致するものを優先して並び替えるロジック
+        // 完全一致する大学名を最優先にソート
         if (qUniv) {
             filtered.sort((a, b) => {
                 const aExact = a.univ.toLowerCase() === qUniv ? 0 : 1;
@@ -461,7 +475,6 @@
         const displayList = list.slice(0, 100);
         const displayCount = displayList.length;
 
-        // 目立つ色と大きさで件数を表示
         if (totalCount > 100) {
             countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${totalCount.toLocaleString()} 件 <span style="font-size:0.75rem; font-weight:normal; color:#64748b;">(最初の ${displayCount} 件を表示)</span></span>`;
         } else {
@@ -470,8 +483,8 @@
 
         let pcHtml = "";
         displayList.forEach(item => {
-            const bgClass = getBgClass(item.method);
-            const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
+            const bgClass = getBgClass(item);
+            const schedStr = cleanMethodSchedule(item.method, item.sched);
             pcHtml += `
                 <tr class="${bgClass}">
                     <td class="code-cell-pc">${item.code}</td>
@@ -484,9 +497,9 @@
 
         let mobileHtml = "";
         displayList.forEach(item => {
-            const bgClass = getBgClass(item.method);
+            const bgClass = getBgClass(item);
             const deptStr = item.dept ? item.dept : '';
-            const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
+            const schedStr = cleanMethodSchedule(item.method, item.sched);
             mobileHtml += `
                 <div class="mobile-card ${bgClass}">
                     <div class="card-code-area">
@@ -561,8 +574,8 @@
 
         let html = "";
         savedList.forEach((item, idx) => {
-            const bgClass = getBgClass(item.method);
-            const schedStr = `${item.method} ${item.sched ? '(' + item.sched + ')' : ''}`;
+            const bgClass = getBgClass(item);
+            const schedStr = cleanMethodSchedule(item.method, item.sched);
             html += `
                 <tr class="${bgClass}">
                     <td class="code-cell-pc">${item.code}</td>
