@@ -370,7 +370,7 @@
             font-weight: 600;
         }
 
-        /* モーダルウィンドウ背景 */
+        /* モーダルウィンドウ背景（高さいっぱいに収まるよう修正） */
         #clip-modal {
             display: none;
             position: fixed;
@@ -382,7 +382,7 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
-            padding: 12px;
+            padding: 8px;
             box-sizing: border-box;
             backdrop-filter: blur(2px);
         }
@@ -393,7 +393,8 @@
             background: #ffffff;
             width: 100%;
             max-width: 600px;
-            max-height: 90vh;
+            height: 85vh; /* スマホ画面からはみ出さないよう固定サイズ上限を設定 */
+            max-height: 550px;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             display: flex;
@@ -412,6 +413,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
         .modal-title {
             font-weight: bold;
@@ -420,7 +422,7 @@
         }
         .modal-body {
             padding: 8px 12px;
-            overflow-y: auto;
+            overflow-y: auto; /* リスト部分だけスクロールさせる */
             flex-grow: 1;
             display: flex;
             flex-direction: column;
@@ -434,6 +436,7 @@
             gap: 8px;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0; /* ボタンが潰れたりはみ出したりしないように保護 */
         }
         .modal-footer-left {
             display: flex;
