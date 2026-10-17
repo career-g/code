@@ -42,6 +42,7 @@
         .header-sub {
             font-size: 0.75rem;
             color: #64748b;
+            font-weight: bold;
         }
         button {
             background-color: var(--primary-color);
@@ -344,7 +345,7 @@
 <div class="container">
     <header>
         <h1>大学入試 5桁コード逆引き</h1>
-        <div class="header-sub">最新版</div>
+        <div class="header-sub" id="header-year-sub">読み込み中...</div>
     </header>
 
     <!-- 検索エリア -->
@@ -428,6 +429,7 @@
         } catch (err) {
             document.getElementById("status-msg").innerText = "エラー: " + err.message;
             document.getElementById("match-count-box").innerText = "読み込み失敗";
+            document.getElementById("header-year-sub").innerText = "読み込みエラー";
         }
     }
 
@@ -439,6 +441,8 @@
         const colMap = {};
         headers.forEach((h, idx) => { colMap[h] = idx; });
 
+        // 1列目（行事年度）のキーを取得
+        const yearKey = headers[0];
         const codeKey = Object.keys(colMap).find(k => k.includes('5桁コード') || k.includes('記入用大学コード'));
         const univKey = Object.keys(colMap).find(k => k === '大学名');
         const facKey = Object.keys(colMap).find(k => k === '学部名');
@@ -446,11 +450,17 @@
         const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
         const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
 
+        let detectedYear = '';
         const parsed = [];
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
             const row = parseCSVLine(lines[i]);
             if (row.length < headers.length) continue;
+
+            // 1行目の行事年度を取得して保持
+            if (!detectedYear && yearKey !== undefined) {
+                detectedYear = String(row[colMap[yearKey]]).trim().replace(/\.0$/, '');
+            }
 
             const code = codeKey !== undefined ? row[colMap[codeKey]] : '';
             const univ = univKey !== undefined ? row[colMap[univKey]] : '';
@@ -469,6 +479,18 @@
                     schoolType: typeVal
                 });
             }
+        }
+
+        // ヘルパー部分に「〇〇年度実施（〇〇+1年度入試用）」と自動反映
+        if (detectedYear) {
+            const numYear = parseInt(detectedYear, 10);
+            if (!isNaN(numYear)) {
+                document.getElementById("header-year-sub").innerText = `${numYear}年度実施 (${numYear + 1}年度入試用)`;
+            } else {
+                document.getElementById("header-year-sub").innerText = `${detectedYear}年度実施`;
+            }
+        } else {
+            document.getElementById("header-year-sub").innerText = "";
         }
 
         allData = parsed;
@@ -583,7 +605,6 @@
             Object.keys(facGrouped).forEach(facName => {
                 const facItems = facGrouped[facName];
 
-                // ★ここで「学科名 (dept)」の昇順に並び替え（同じ学科なら日程方式名やコード順で安定させる）
                 facItems.sort((a, b) => {
                     if (a.dept !== b.dept) {
                         return a.dept.localeCompare(b.dept, 'ja');
