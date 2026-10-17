@@ -514,8 +514,8 @@
     <!-- 転記用リスト（タップでモーダル表示） -->
     <div class="clip-section" onclick="openClipModal()">
         <div class="clip-header">
-            <div class="clip-title">📋 転記用リスト（タップで大きく表示・最大10件）</div>
-            <div class="clip-count" id="clip-count">0 / 10件</div>
+            <div class="clip-title">📋 転記用リスト（タップで大きく表示・最大50件）</div>
+            <div class="clip-count" id="clip-count">0 / 50件</div>
         </div>
         <div class="table-container clip-table-container" id="clip-container" onclick="event.stopPropagation()">
             <div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>
@@ -873,8 +873,8 @@
             showToast("この項目はすでにリストに登録されています", true);
             return;
         }
-        if (savedList.length >= 10) {
-            showToast("保存リストは最大10件までです", true);
+        if (savedList.length >= 50) {
+            showToast("保存リストは最大50件までです", true);
             return;
         }
         savedList.push(item);
@@ -909,7 +909,7 @@
     function renderSavedList() {
         const container = document.getElementById("clip-container");
         const modalContainer = document.getElementById("modal-clip-container");
-        document.getElementById("clip-count").innerText = `${savedList.length} / 10件`;
+        document.getElementById("clip-count").innerText = `${savedList.length} / 50件`;
 
         if (savedList.length === 0) {
             const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
