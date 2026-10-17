@@ -518,14 +518,6 @@
         return "bg-dokuji";
     }
 
-    function getScheduleOrder(methodName) {
-        const text = methodName.toLowerCase();
-        if (text.includes('前期')) return 1;
-        if (text.includes('中期')) return 2;
-        if (text.includes('後期')) return 3;
-        return 4;
-    }
-
     function filterData() {
         if (allData.length === 0) return;
 
@@ -609,25 +601,12 @@
             Object.keys(facGrouped).forEach(facName => {
                 const facItems = facGrouped[facName];
 
-                // ★ソートロジックの調整
+                // ★学科名でグループ分けしつつ、学科内の並び替えは行わずCSVの元の順番（インデックス順）をそのまま維持する
                 facItems.sort((a, b) => {
-                    // 1. 学科名で比較
                     if (a.dept !== b.dept) {
                         return a.dept.localeCompare(b.dept, 'ja');
                     }
-                    
-                    // 2. 国公立（学校区分 1 or 2）の場合は「前期 ➔ 中期 ➔ 後期」順
-                    const isKokuritsu = (a.schoolType === '1' || a.schoolType === '2');
-                    if (isKokuritsu) {
-                        const orderA = getScheduleOrder(a.methodName);
-                        const orderB = getScheduleOrder(b.methodName);
-                        if (orderA !== orderB) {
-                            return orderA - orderB;
-                        }
-                    }
-
-                    // 3. 私立やその他、または同じ日程内の場合は「コード番号順（昇順）」
-                    return a.code.localeCompare(b.code);
+                    return 0; // 同じ学科内は並び替えを行わず、元のCSVの順番を維持
                 });
 
                 let cardsHtml = '';
