@@ -265,6 +265,11 @@
             align-items: center;
             margin-bottom: 4px;
         }
+        .clip-title-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         .clip-title {
             font-weight: bold;
             font-size: 0.8rem;
@@ -420,7 +425,16 @@
             border-top: 1px solid var(--border-color);
             display: flex;
             gap: 8px;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-footer-left {
+            display: flex;
+            gap: 8px;
+        }
+        .modal-footer-right {
+            display: flex;
+            gap: 8px;
         }
 
         /* トースト通知 */
@@ -514,8 +528,13 @@
     <!-- 転記用リスト（タップでモーダル表示） -->
     <div class="clip-section" onclick="openClipModal()">
         <div class="clip-header">
-            <div class="clip-title">📋 転記用リスト（タップで大きく表示・最大50件）</div>
-            <div class="clip-count" id="clip-count">0 / 50件</div>
+            <div class="clip-title-area">
+                <div class="clip-title">📋 転記用リスト（最大50件）</div>
+                <div class="clip-count" id="clip-count">0 / 50件</div>
+            </div>
+            <div>
+                <button class="danger" style="padding: 3px 8px; font-size: 0.65rem;" onclick="event.stopPropagation(); clearAllList();">すべてクリア</button>
+            </div>
         </div>
         <div class="table-container clip-table-container" id="clip-container" onclick="event.stopPropagation()">
             <div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>
@@ -534,8 +553,13 @@
             <!-- モーダル内のリスト表示エリア -->
         </div>
         <div class="modal-footer">
-            <button class="success" onclick="copyListAsText()">📝 リストをテキストでコピー</button>
-            <button class="secondary" onclick="closeClipModal()">閉じる</button>
+            <div class="modal-footer-left">
+                <button class="danger" onclick="clearAllList()">すべてクリア</button>
+            </div>
+            <div class="modal-footer-right">
+                <button class="success" onclick="copyListAsText()">📝 テキストコピー</button>
+                <button class="secondary" onclick="closeClipModal()">閉じる</button>
+            </div>
         </div>
     </div>
 </div>
@@ -888,6 +912,21 @@
         saveListToStorage();
         showToast("リストから削除しました");
         renderSavedList();
+    }
+
+    // リストをすべてクリアする関数
+    function clearAllList() {
+        if (savedList.length === 0) {
+            showToast("転記用リストはすでに空です", true);
+            return;
+        }
+        if (confirm("転記用リストの項目をすべて削除しますか？")) {
+            savedList = [];
+            saveListToStorage();
+            renderSavedList();
+            closeClipModal();
+            showToast("転記用リストをすべてクリアしました");
+        }
     }
 
     function saveListToStorage() {
