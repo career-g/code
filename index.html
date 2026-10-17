@@ -465,6 +465,9 @@
             const dept = deptKey !== undefined ? row[colMap[deptKey]] : '';
             const methodName = methodNameKey !== undefined ? row[colMap[methodNameKey]] : '';
             const typeVal = typeKey !== undefined ? String(row[colMap[typeKey]]).trim() : '';
+            
+            // AA列（インデックス26 = 27番目の列）から学科短縮名を取得
+            const shortNameVal = row.length > 26 ? row[26].trim().replace(/^"|"$/g, '') : '';
 
             if (code && code !== 'NaN') {
                 parsed.push({
@@ -473,7 +476,8 @@
                     fac: fac && fac !== 'nan' ? fac : '学部なし',
                     dept: dept && dept !== 'nan' && dept !== 'NaN' ? dept : '',
                     methodName: methodName && methodName !== 'nan' ? methodName : '',
-                    schoolType: typeVal
+                    schoolType: typeVal,
+                    shortName: shortNameVal && shortNameVal !== 'nan' ? shortNameVal : ''
                 });
             }
         }
@@ -601,19 +605,24 @@
             Object.keys(facGrouped).forEach(facName => {
                 const facItems = facGrouped[facName];
 
-                // ★学科名でグループ分けしつつ、学科内の並び替えは行わずCSVの元の順番（インデックス順）をそのまま維持する
                 facItems.sort((a, b) => {
                     if (a.dept !== b.dept) {
                         return a.dept.localeCompare(b.dept, 'ja');
                     }
-                    return 0; // 同じ学科内は並び替えを行わず、元のCSVの順番を維持
+                    return 0; // 元のCSVの順番を維持
                 });
 
                 let cardsHtml = '';
                 facItems.forEach(item => {
                     const bgClass = getBgClass(item);
                     const deptStr = item.dept ? item.dept : '';
-                    const badgeHtml = item.methodName ? `<div class="sub-card-meta"><span class="sub-card-badge">${item.methodName}</span></div>` : '';
+                    
+                    // 日程方式名がある場合はそれを使用、空欄の場合はAA列の短縮名を（）書きで表示
+                    let displayBadge = item.methodName;
+                    if (!displayBadge && item.shortName) {
+                        displayBadge = `(${item.shortName})`;
+                    }
+                    const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
                     cardsHtml += `
                         <div class="sub-card ${bgClass}">
@@ -672,7 +681,7 @@
     }
 
     function addToList(item) {
-        if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName)) {
+        if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName && i.shortName === item.shortName)) {
             showToast("この項目はすでにリストに登録されています", true);
             return;
         }
@@ -704,7 +713,12 @@
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
             const deptStr = item.dept ? ` / ${item.dept}` : '';
-            const badgeHtml = item.methodName ? `<div class="sub-card-meta"><span class="sub-card-badge">${item.methodName}</span></div>` : '';
+            
+            let displayBadge = item.methodName;
+            if (!displayBadge && item.shortName) {
+                displayBadge = `(${item.shortName})`;
+            }
+            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
             cardsHtml += `
                 <div class="sub-card ${bgClass}">
