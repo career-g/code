@@ -117,11 +117,6 @@
         .highlight-count.error {
             color: #dc2626;
         }
-        .count-sub-text {
-            font-size: 0.7rem;
-            font-weight: normal;
-            color: #64748b;
-        }
 
         /* 大学別アコーディオン・グループ */
         .univ-group {
@@ -170,7 +165,6 @@
             transform: rotate(180deg);
         }
         
-        /* 大学コンテンツ（開閉対象） */
         .univ-content {
             display: none;
             padding: 8px;
@@ -204,7 +198,6 @@
             gap: 4px;
         }
 
-        /* テーブル・コンテナ */
         .table-container {
             background: transparent;
             margin-bottom: 12px;
@@ -557,7 +550,6 @@
 
         countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
 
-        // 1. 大学ごとにグルーピング
         const univGrouped = {};
         list.forEach(item => {
             if (!univGrouped[item.univ]) {
@@ -579,7 +571,6 @@
                 if (index === 0) isOpen = true;
             }
 
-            // 2. その大学の中でさらに「学部ごと」にグルーピング
             const facGrouped = {};
             univItems.forEach(item => {
                 if (!facGrouped[item.fac]) {
@@ -591,11 +582,21 @@
             let facHtml = '';
             Object.keys(facGrouped).forEach(facName => {
                 const facItems = facGrouped[facName];
+
+                // ★ここで「学科名 (dept)」の昇順に並び替え（同じ学科なら日程方式名やコード順で安定させる）
+                facItems.sort((a, b) => {
+                    if (a.dept !== b.dept) {
+                        return a.dept.localeCompare(b.dept, 'ja');
+                    }
+                    return a.methodName.localeCompare(b.methodName, 'ja');
+                });
+
                 let cardsHtml = '';
-                
                 facItems.forEach(item => {
                     const bgClass = getBgClass(item);
                     const deptStr = item.dept ? item.dept : '';
+                    const badgeHtml = item.methodName ? `<div class="sub-card-meta"><span class="sub-card-badge">${item.methodName}</span></div>` : '';
+
                     cardsHtml += `
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
@@ -604,9 +605,7 @@
                             </div>
                             <div class="sub-card-content">
                                 ${deptStr ? `<div class="sub-card-main">${deptStr}</div>` : ''}
-                                <div class="sub-card-meta">
-                                    <span class="sub-card-badge">${item.methodName}</span>
-                                </div>
+                                ${badgeHtml}
                             </div>
                         </div>
                     `;
@@ -645,12 +644,10 @@
         const targetGroup = document.getElementById(`univ-group-${index}`);
         const isOpen = targetGroup.classList.contains('open');
 
-        // 他をすべて閉じる
         document.querySelectorAll('.univ-group').forEach(group => {
             group.classList.remove('open');
         });
 
-        // 閉じていた場合のみ開く
         if (!isOpen) {
             targetGroup.classList.add('open');
         }
@@ -689,6 +686,8 @@
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
             const deptStr = item.dept ? ` / ${item.dept}` : '';
+            const badgeHtml = item.methodName ? `<div class="sub-card-meta"><span class="sub-card-badge">${item.methodName}</span></div>` : '';
+
             cardsHtml += `
                 <div class="sub-card ${bgClass}">
                     <div class="sub-card-code-area">
@@ -697,9 +696,7 @@
                     </div>
                     <div class="sub-card-content">
                         <div class="sub-card-main"><strong>${item.univ}</strong> ${item.fac}${deptStr}</div>
-                        <div class="sub-card-meta">
-                            <span class="sub-card-badge">${item.methodName}</span>
-                        </div>
+                        ${badgeHtml}
                     </div>
                 </div>
             `;
