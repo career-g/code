@@ -518,7 +518,7 @@
             <div class="clip-count" id="clip-count">0 / 10件</div>
         </div>
         <div class="table-container clip-table-container" id="clip-container" onclick="event.stopPropagation()">
-            <div class="guide-msg small" id="clip-empty-msg">転記用リストは選択されていません</div>
+            <div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>
         </div>
     </div>
 </div>
@@ -912,7 +912,7 @@
         document.getElementById("clip-count").innerText = `${savedList.length} / 10件`;
 
         if (savedList.length === 0) {
-            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストは選択されていません</div>`;
+            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
             container.innerHTML = emptyHtml;
             modalContainer.innerHTML = emptyHtml;
             return;
@@ -952,6 +952,10 @@
     }
 
     function openClipModal() {
+        if (savedList.length === 0) {
+            showToast("転記用リストに項目が追加されていません", true);
+            return;
+        }
         document.getElementById("clip-modal").classList.add("show");
     }
 
