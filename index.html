@@ -198,14 +198,6 @@
             gap: 4px;
         }
 
-        /* 横断検索時のフラットリスト用コンテナ */
-        .flat-list-container {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 12px;
-        }
-
         .table-container {
             background: transparent;
             margin-bottom: 12px;
@@ -299,12 +291,22 @@
         .sub-card-content {
             flex-grow: 1;
         }
+        
+        /* 学部：太字、学科：通常 */
         .sub-card-main {
             font-size: 0.8rem;
-            font-weight: bold;
             color: #0f172a;
             margin-bottom: 1px;
         }
+        .sub-card-main span.bold-fac {
+            font-weight: bold;
+            color: #0f172a;
+        }
+        .sub-card-main span.normal-dept {
+            font-weight: normal;
+            color: #475569;
+        }
+
         .sub-card-badge {
             background: rgba(255, 255, 255, 0.75);
             border: 1px solid rgba(0,0,0,0.08);
@@ -474,7 +476,10 @@
             const methodName = methodNameKey !== undefined ? row[colMap[methodNameKey]] : '';
             const typeVal = typeKey !== undefined ? String(row[colMap[typeKey]]).trim() : '';
             
-            const shortNameVal = row.length > 26 ? row[26].trim().replace(/^"|"$/g, '') : '';
+            let shortNameVal = '';
+            if (row.length > 26 && row[26]) {
+                shortNameVal = String(row[26]).trim().replace(/^"|"$/g, '');
+            }
 
             if (code && code !== 'NaN') {
                 parsed.push({
@@ -564,56 +569,9 @@
             });
         }
 
-        // 大学名が入力されているかどうかで表示を自動切り替え
-        if (qUniv) {
-            renderGroupedResults(filtered, qUniv); // 従来通り（大学名あり）
-        } else {
-            renderFlatResults(filtered); // フラットな一覧形式（大学名なし＝横断検索用）
-        }
+        renderGroupedResults(filtered, qUniv);
     }
 
-    // 大学名未入力時のフラット一覧描画（横断検索用）
-    function renderFlatResults(list) {
-        const container = document.getElementById("result-container");
-        const countBox = document.getElementById("match-count-box");
-
-        if (list.length === 0) {
-            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count error">0 件</span>`;
-            container.innerHTML = `<div class="guide-msg error">条件に一致するデータが見つかりませんでした</div>`;
-            return;
-        }
-
-        countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
-
-        let cardsHtml = '';
-        list.forEach(item => {
-            const bgClass = getBgClass(item);
-            const deptStr = item.dept ? ` / ${item.dept}` : '';
-            
-            let displayBadge = item.methodName;
-            if (!displayBadge && item.shortName) {
-                displayBadge = `(${item.shortName})`;
-            }
-            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
-
-            cardsHtml += `
-                <div class="sub-card ${bgClass}">
-                    <div class="sub-card-code-area">
-                        <div class="sub-card-code">${item.code}</div>
-                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
-                    </div>
-                    <div class="sub-card-content">
-                        <div class="sub-card-main"><strong>${item.univ}</strong> ${item.fac}${deptStr}</div>
-                        ${badgeHtml}
-                    </div>
-                </div>
-            `;
-        });
-
-        container.innerHTML = `<div class="flat-list-container">${cardsHtml}</div>`;
-    }
-
-    // 大学名入力時のアコーディオン＆学部グループ描画
     function renderGroupedResults(list, qUniv) {
         const container = document.getElementById("result-container");
         const countBox = document.getElementById("match-count-box");
@@ -669,7 +627,12 @@
                 let cardsHtml = '';
                 facItems.forEach(item => {
                     const bgClass = getBgClass(item);
-                    const deptStr = item.dept ? item.dept : '';
+                    
+                    // 学部：太字、学科：通常
+                    let mainStr = `<span class="bold-fac">${item.fac}</span>`;
+                    if (item.dept) {
+                        mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
+                    }
                     
                     let displayBadge = item.methodName;
                     if (!displayBadge && item.shortName) {
@@ -684,7 +647,7 @@
                                 <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
                             </div>
                             <div class="sub-card-content">
-                                ${deptStr ? `<div class="sub-card-main">${deptStr}</div>` : ''}
+                                <div class="sub-card-main">${mainStr}</div>
                                 ${badgeHtml}
                             </div>
                         </div>
@@ -765,7 +728,11 @@
         let cardsHtml = '';
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
-            const deptStr = item.dept ? ` / ${item.dept}` : '';
+            
+            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac}</span>`;
+            if (item.dept) {
+                mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
+            }
             
             let displayBadge = item.methodName;
             if (!displayBadge && item.shortName) {
@@ -780,7 +747,7 @@
                         <button class="danger" onclick="removeFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
-                        <div class="sub-card-main"><strong>${item.univ}</strong> ${item.fac}${deptStr}</div>
+                        <div class="sub-card-main">${mainStr}</div>
                         ${badgeHtml}
                     </div>
                 </div>
