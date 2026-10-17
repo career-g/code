@@ -294,6 +294,7 @@
         .guide-msg.small {
             padding: 8px;
             font-size: 0.75rem;
+            color: #64748b;
         }
 
         /* 国公立の日程別背景色 */
@@ -517,7 +518,7 @@
             <div class="clip-count" id="clip-count">0 / 10件</div>
         </div>
         <div class="table-container clip-table-container" id="clip-container" onclick="event.stopPropagation()">
-            <div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>
+            <div class="guide-msg small" id="clip-empty-msg">転記用リストは選択されていません</div>
         </div>
     </div>
 </div>
@@ -546,11 +547,8 @@
     let savedList = [];
 
     window.addEventListener("DOMContentLoaded", () => {
-        // 保存されていた転記用リストを復元
         loadSavedListFromStorage();
-        // 保存されていた検索条件を復元
         loadSearchConditions();
-        
         loadGitHubCSV();
     });
 
@@ -562,7 +560,6 @@
         window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
     }
 
-    // 検索エリアの開閉切り替え
     function toggleSearchCollapse() {
         const body = document.getElementById("search-body");
         const icon = document.getElementById("search-toggle-icon");
@@ -682,7 +679,6 @@
         return "bg-dokuji";
     }
 
-    // 検索条件をブラウザに保存しつつ絞り込み実行
     function saveAndFilter() {
         const conditions = {
             type: document.getElementById("s-type").value,
@@ -695,7 +691,6 @@
         filterData();
     }
 
-    // 保存された検索条件を復元
     function loadSearchConditions() {
         try {
             const saved = localStorage.getItem("exam_search_conditions");
@@ -895,12 +890,10 @@
         renderSavedList();
     }
 
-    // 転記用リストをブラウザに保存
     function saveListToStorage() {
         localStorage.setItem("exam_saved_list", JSON.stringify(savedList));
     }
 
-    // 保存された転記用リストを復元
     function loadSavedListFromStorage() {
         try {
             const saved = localStorage.getItem("exam_saved_list");
@@ -919,7 +912,7 @@
         document.getElementById("clip-count").innerText = `${savedList.length} / 10件`;
 
         if (savedList.length === 0) {
-            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>`;
+            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストは選択されていません</div>`;
             container.innerHTML = emptyHtml;
             modalContainer.innerHTML = emptyHtml;
             return;
