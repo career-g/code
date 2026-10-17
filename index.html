@@ -198,6 +198,14 @@
             gap: 4px;
         }
 
+        /* 横断検索時（大学名未入力）のフラットリスト */
+        .flat-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
         .table-container {
             background: transparent;
             margin-bottom: 12px;
@@ -294,17 +302,17 @@
         
         /* 学部：太字、学科：通常 */
         .sub-card-main {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: #0f172a;
             margin-bottom: 1px;
         }
-        .sub-card-main span.bold-fac {
+        .bold-fac {
             font-weight: bold;
             color: #0f172a;
         }
-        .sub-card-main span.normal-dept {
+        .normal-dept {
             font-weight: normal;
-            color: #475569;
+            color: #334155;
         }
 
         .sub-card-badge {
@@ -561,17 +569,66 @@
             return true;
         });
 
+        // 大学名が指定されている場合は大学別アコーディオン、入力されていない場合はフラット表示
         if (qUniv) {
             filtered.sort((a, b) => {
                 const aExact = a.univ.toLowerCase() === qUniv ? 0 : 1;
                 const bExact = b.univ.toLowerCase() === qUniv ? 0 : 1;
                 return aExact - bExact;
             });
+            renderGroupedResults(filtered, qUniv);
+        } else {
+            renderFlatResults(filtered);
         }
-
-        renderGroupedResults(filtered, qUniv);
     }
 
+    // 大学名未入力時のフラット表示（グループ化なし）
+    function renderFlatResults(list) {
+        const container = document.getElementById("result-container");
+        const countBox = document.getElementById("match-count-box");
+
+        if (list.length === 0) {
+            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count error">0 件</span>`;
+            container.innerHTML = `<div class="guide-msg error">条件に一致するデータが見つかりませんでした</div>`;
+            return;
+        }
+
+        countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
+
+        let cardsHtml = '';
+        list.forEach(item => {
+            const bgClass = getBgClass(item);
+            
+            // 大学名 学部(太字) / 学科(通常)
+            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac}</span>`;
+            if (item.dept) {
+                mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
+            }
+
+            let displayBadge = item.methodName;
+            if (!displayBadge && item.shortName) {
+                displayBadge = `(${item.shortName})`;
+            }
+            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
+
+            cardsHtml += `
+                <div class="sub-card ${bgClass}">
+                    <div class="sub-card-code-area">
+                        <div class="sub-card-code">${item.code}</div>
+                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
+                    </div>
+                    <div class="sub-card-content">
+                        <div class="sub-card-main">${mainStr}</div>
+                        ${badgeHtml}
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = `<div class="flat-list-container">${cardsHtml}</div>`;
+    }
+
+    // 大学名入力時の大学別アコーディオン表示
     function renderGroupedResults(list, qUniv) {
         const container = document.getElementById("result-container");
         const countBox = document.getElementById("match-count-box");
@@ -628,7 +685,6 @@
                 facItems.forEach(item => {
                     const bgClass = getBgClass(item);
                     
-                    // 学部：太字、学科：通常
                     let mainStr = `<span class="bold-fac">${item.fac}</span>`;
                     if (item.dept) {
                         mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
