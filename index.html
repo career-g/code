@@ -58,7 +58,6 @@
         button:hover { background-color: var(--primary-hover); }
         button.danger { background-color: #dc2626; }
         button.danger:hover { background-color: #b91c1c; }
-        .text-center { text-align: center; }
         
         /* 検索カード */
         .search-card {
@@ -441,7 +440,6 @@
         const colMap = {};
         headers.forEach((h, idx) => { colMap[h] = idx; });
 
-        // 1列目（行事年度）のキーを取得
         const yearKey = headers[0];
         const codeKey = Object.keys(colMap).find(k => k.includes('5桁コード') || k.includes('記入用大学コード'));
         const univKey = Object.keys(colMap).find(k => k === '大学名');
@@ -457,7 +455,6 @@
             const row = parseCSVLine(lines[i]);
             if (row.length < headers.length) continue;
 
-            // 1行目の行事年度を取得して保持
             if (!detectedYear && yearKey !== undefined) {
                 detectedYear = String(row[colMap[yearKey]]).trim().replace(/\.0$/, '');
             }
@@ -481,7 +478,6 @@
             }
         }
 
-        // ヘルパー部分に「〇〇年度実施（〇〇+1年度入試用）」と自動反映
         if (detectedYear) {
             const numYear = parseInt(detectedYear, 10);
             if (!isNaN(numYear)) {
@@ -520,6 +516,14 @@
         if (text.includes('後期')) return "bg-koki";
         
         return "bg-dokuji";
+    }
+
+    function getScheduleOrder(methodName) {
+        const text = methodName.toLowerCase();
+        if (text.includes('前期')) return 1;
+        if (text.includes('中期')) return 2;
+        if (text.includes('後期')) return 3;
+        return 4;
     }
 
     function filterData() {
@@ -605,11 +609,25 @@
             Object.keys(facGrouped).forEach(facName => {
                 const facItems = facGrouped[facName];
 
+                // ★ソートロジックの調整
                 facItems.sort((a, b) => {
+                    // 1. 学科名で比較
                     if (a.dept !== b.dept) {
                         return a.dept.localeCompare(b.dept, 'ja');
                     }
-                    return a.methodName.localeCompare(b.methodName, 'ja');
+                    
+                    // 2. 国公立（学校区分 1 or 2）の場合は「前期 ➔ 中期 ➔ 後期」順
+                    const isKokuritsu = (a.schoolType === '1' || a.schoolType === '2');
+                    if (isKokuritsu) {
+                        const orderA = getScheduleOrder(a.methodName);
+                        const orderB = getScheduleOrder(b.methodName);
+                        if (orderA !== orderB) {
+                            return orderA - orderB;
+                        }
+                    }
+
+                    // 3. 私立やその他、または同じ日程内の場合は「コード番号順（昇順）」
+                    return a.code.localeCompare(b.code);
                 });
 
                 let cardsHtml = '';
