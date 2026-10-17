@@ -58,6 +58,8 @@
         button:hover { background-color: var(--primary-hover); }
         button.danger { background-color: #dc2626; }
         button.danger:hover { background-color: #b91c1c; }
+        button.success { background-color: #16a34a; }
+        button.success:hover { background-color: #15803d; }
         
         /* 検索カード */
         .search-card {
@@ -198,14 +200,6 @@
             gap: 4px;
         }
 
-        /* 横断検索時（大学名未入力）のフラットリスト */
-        .flat-list-container {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 12px;
-        }
-
         .table-container {
             background: transparent;
             margin-bottom: 12px;
@@ -217,7 +211,7 @@
             margin-bottom: 0;
         }
 
-        /* 保存リストエリア */
+        /* 保存リストエリア（タップ可能を示すカーソル） */
         .clip-section {
             background: var(--card-bg);
             padding: 10px 12px;
@@ -225,6 +219,11 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             border: 2px dashed var(--primary-color);
             margin-bottom: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .clip-section:hover {
+            background: #f0f7ff;
         }
         .clip-header {
             display: flex;
@@ -302,7 +301,7 @@
         
         /* 学部：太字、学科：通常 */
         .sub-card-main {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #0f172a;
             margin-bottom: 1px;
         }
@@ -312,7 +311,7 @@
         }
         .normal-dept {
             font-weight: normal;
-            color: #334155;
+            color: #475569;
         }
 
         .sub-card-badge {
@@ -323,6 +322,72 @@
             padding: 1px 5px;
             border-radius: 3px;
             font-weight: 600;
+        }
+
+        /* モーダルウィンドウ背景 */
+        #clip-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
+            box-sizing: border-box;
+            backdrop-filter: blur(2px);
+        }
+        #clip-modal.show {
+            display: flex;
+        }
+        /* モーダル本体 */
+        .modal-content {
+            background: #ffffff;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalOpen 0.2s ease-out;
+        }
+        @keyframes modalOpen {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-header {
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: var(--primary-color);
+        }
+        .modal-body {
+            padding: 12px 16px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .modal-footer {
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
         }
 
         /* トースト通知 */
@@ -407,14 +472,31 @@
     <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
     <div class="table-container" id="result-container"></div>
 
-    <!-- 転記用リスト -->
-    <div class="clip-section">
+    <!-- 転記用リスト（タップでモーダル表示） -->
+    <div class="clip-section" onclick="openClipModal()">
         <div class="clip-header">
-            <div class="clip-title">📋 転記用リスト（スクショ用・最大10件）</div>
+            <div class="clip-title">📋 転記用リスト（タップで大きく表示・最大10件）</div>
             <div class="clip-count" id="clip-count">0 / 10件</div>
         </div>
-        <div class="table-container clip-table-container" id="clip-container">
+        <div class="table-container clip-table-container" id="clip-container" onclick="event.stopPropagation()">
             <div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>
+        </div>
+    </div>
+</div>
+
+<!-- 転記用リスト モーダルウィンドウ -->
+<div id="clip-modal" onclick="closeClipModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title">📋 転記用リスト（全画面表示）</div>
+            <button onclick="closeClipModal()">閉じる ✕</button>
+        </div>
+        <div class="modal-body" id="modal-clip-container">
+            <!-- モーダル内のリスト表示エリア -->
+        </div>
+        <div class="modal-footer">
+            <button class="success" onclick="copyListAsText()">📝 リストをテキストでコピー</button>
+            <button onclick="closeClipModal()">閉じる</button>
         </div>
     </div>
 </div>
@@ -569,66 +651,17 @@
             return true;
         });
 
-        // 大学名が指定されている場合は大学別アコーディオン、入力されていない場合はフラット表示
         if (qUniv) {
             filtered.sort((a, b) => {
                 const aExact = a.univ.toLowerCase() === qUniv ? 0 : 1;
                 const bExact = b.univ.toLowerCase() === qUniv ? 0 : 1;
                 return aExact - bExact;
             });
-            renderGroupedResults(filtered, qUniv);
-        } else {
-            renderFlatResults(filtered);
-        }
-    }
-
-    // 大学名未入力時のフラット表示（グループ化なし）
-    function renderFlatResults(list) {
-        const container = document.getElementById("result-container");
-        const countBox = document.getElementById("match-count-box");
-
-        if (list.length === 0) {
-            countBox.innerHTML = `<span>該当件数</span><span class="highlight-count error">0 件</span>`;
-            container.innerHTML = `<div class="guide-msg error">条件に一致するデータが見つかりませんでした</div>`;
-            return;
         }
 
-        countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
-
-        let cardsHtml = '';
-        list.forEach(item => {
-            const bgClass = getBgClass(item);
-            
-            // 大学名 学部(太字) / 学科(通常)
-            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac}</span>`;
-            if (item.dept) {
-                mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
-            }
-
-            let displayBadge = item.methodName;
-            if (!displayBadge && item.shortName) {
-                displayBadge = `(${item.shortName})`;
-            }
-            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
-
-            cardsHtml += `
-                <div class="sub-card ${bgClass}">
-                    <div class="sub-card-code-area">
-                        <div class="sub-card-code">${item.code}</div>
-                        <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
-                    </div>
-                    <div class="sub-card-content">
-                        <div class="sub-card-main">${mainStr}</div>
-                        ${badgeHtml}
-                    </div>
-                </div>
-            `;
-        });
-
-        container.innerHTML = `<div class="flat-list-container">${cardsHtml}</div>`;
+        renderGroupedResults(filtered, qUniv);
     }
 
-    // 大学名入力時の大学別アコーディオン表示
     function renderGroupedResults(list, qUniv) {
         const container = document.getElementById("result-container");
         const countBox = document.getElementById("match-count-box");
@@ -774,10 +807,13 @@
 
     function renderSavedList() {
         const container = document.getElementById("clip-container");
+        const modalContainer = document.getElementById("modal-clip-container");
         document.getElementById("clip-count").innerText = `${savedList.length} / 10件`;
 
         if (savedList.length === 0) {
-            container.innerHTML = `<div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>`;
+            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">ここに保存した項目が並びます</div>`;
+            container.innerHTML = emptyHtml;
+            modalContainer.innerHTML = emptyHtml;
             return;
         }
 
@@ -811,6 +847,37 @@
         });
 
         container.innerHTML = cardsHtml;
+        modalContainer.innerHTML = cardsHtml;
+    }
+
+    // モーダルを開閉する関数
+    function openClipModal() {
+        document.getElementById("clip-modal").classList.add("show");
+    }
+
+    function closeClipModal() {
+        document.getElementById("clip-modal").classList.remove("show");
+    }
+
+    // リストをテキストにしてクリップボードにコピー
+    function copyListAsText() {
+        if (savedList.length === 0) {
+            showToast("コピーする項目がありません", true);
+            return;
+        }
+
+        let textData = savedList.map((item, idx) => {
+            let deptStr = item.dept ? ` ${item.dept}` : '';
+            let badgeStr = item.methodName || (item.shortName ? `(${item.shortName})` : '');
+            badgeStr = badgeStr ? ` [${badgeStr}]` : '';
+            return `${idx + 1}. 【${item.code}】 ${item.univ} ${item.fac}${deptStr}${badgeStr}`;
+        }).join("\n");
+
+        navigator.clipboard.writeText(textData).then(() => {
+            showToast("転記用リストをテキストでコピーしました！");
+        }).catch(err => {
+            showToast("コピーに失敗しました", true);
+        });
     }
 </script>
 
