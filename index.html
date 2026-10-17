@@ -18,32 +18,39 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 8px;
+            padding: 6px;
         }
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
+        
+        /* ヘッダーのレイアウト改善（タイトルと年度をスッキリ収める） */
         header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
+            align-items: baseline;
+            margin-bottom: 6px;
             background: var(--card-bg);
-            padding: 10px 14px;
+            padding: 8px 12px;
             border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            gap: 8px;
         }
         h1 {
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             margin: 0;
             color: var(--primary-color);
+            white-space: nowrap;
         }
         .header-sub {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #64748b;
             font-weight: bold;
+            text-align: right;
+            white-space: nowrap;
         }
+
         button {
             background-color: var(--primary-color);
             color: white;
@@ -60,34 +67,62 @@
         button.danger:hover { background-color: #b91c1c; }
         button.success { background-color: #16a34a; }
         button.success:hover { background-color: #15803d; }
+        button.secondary { background-color: #64748b; }
+        button.secondary:hover { background-color: #475569; }
         
-        /* 検索カード */
+        /* 検索カード（折りたたみ対応） */
         .search-card {
             background: var(--card-bg);
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
+        .search-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .search-card-title {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .search-body {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 8px;
+        }
+        .search-body.collapsed {
+            display: none;
+        }
+
         .search-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 6px;
-            margin-bottom: 6px;
         }
         .search-field label {
             display: block;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: bold;
             margin-bottom: 2px;
             color: #64748b;
         }
         .search-field input, .search-field select {
             width: 100%;
-            padding: 5px 8px;
+            padding: 4px 6px;
             border: 1px solid var(--border-color);
             border-radius: 5px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             box-sizing: border-box;
             background: #f8fafc;
         }
@@ -103,18 +138,17 @@
             background: #eff6ff;
             border: 1px solid #bfdbfe;
             color: #1e40af;
-            padding: 6px 10px;
+            padding: 5px 8px;
             border-radius: 6px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 6px;
         }
         .highlight-count {
             color: #2563eb;
-            font-size: 1rem;
+            font-size: 0.9rem;
         }
         .highlight-count.error {
             color: #dc2626;
@@ -130,14 +164,14 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
         .univ-header {
-            padding: 10px 12px;
+            padding: 8px 10px;
             background: #f8fafc;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #0f172a;
             user-select: none;
             transition: background 0.2s;
@@ -153,13 +187,13 @@
         .univ-count-badge {
             background: #e2e8f0;
             color: #475569;
-            font-size: 0.7rem;
-            padding: 1px 6px;
+            font-size: 0.65rem;
+            padding: 1px 5px;
             border-radius: 10px;
             font-weight: normal;
         }
         .univ-arrow {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #64748b;
             transition: transform 0.2s;
         }
@@ -169,11 +203,11 @@
         
         .univ-content {
             display: none;
-            padding: 8px;
+            padding: 6px;
             background: #ffffff;
             border-top: 1px solid #f1f5f9;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
         .univ-group.open .univ-content {
             display: flex;
@@ -184,13 +218,13 @@
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            padding: 6px 8px;
+            padding: 5px 6px;
         }
         .fac-title {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: bold;
             color: #334155;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             padding-bottom: 2px;
             border-bottom: 1px dashed #cbd5e1;
         }
@@ -202,23 +236,23 @@
 
         .table-container {
             background: transparent;
-            margin-bottom: 12px;
-            max-height: 500px;
+            margin-bottom: 8px;
+            max-height: 60vh; /* 画面の高さに合わせて広めに確保 */
             overflow-y: auto;
         }
         .clip-table-container {
-            max-height: 250px;
+            max-height: 200px;
             margin-bottom: 0;
         }
 
-        /* 保存リストエリア（タップ可能を示すカーソル） */
+        /* 保存リストエリア */
         .clip-section {
             background: var(--card-bg);
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             border: 2px dashed var(--primary-color);
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             cursor: pointer;
             transition: background 0.2s;
         }
@@ -229,11 +263,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
         .clip-title {
             font-weight: bold;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--primary-color);
         }
         .clip-count {
@@ -241,25 +275,25 @@
             color: #1e40af;
             padding: 2px 6px;
             border-radius: 8px;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: bold;
         }
         #status-msg, .guide-msg {
             text-align: center;
-            padding: 20px;
+            padding: 15px;
             color: #475569;
             background: var(--card-bg);
             border-radius: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 500;
         }
         .guide-msg.error {
             color: #dc2626;
         }
         .guide-msg.small {
-            padding: 10px;
-            font-size: 0.8rem;
+            padding: 8px;
+            font-size: 0.75rem;
         }
 
         /* 国公立の日程別背景色 */
@@ -273,7 +307,7 @@
             background: #ffffff;
             border: 1px solid var(--border-color);
             border-radius: 5px;
-            padding: 5px 8px;
+            padding: 4px 6px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -284,13 +318,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-width: 60px;
+            min-width: 55px;
             padding-right: 6px;
             border-right: 1px solid rgba(0,0,0,0.08);
         }
         .sub-card-code {
             font-family: monospace;
-            font-size: 1.05rem;
+            font-size: 1rem;
             font-weight: bold;
             color: #1d4ed8;
             margin-bottom: 1px;
@@ -299,9 +333,8 @@
             flex-grow: 1;
         }
         
-        /* 学部：太字、学科：通常 */
         .sub-card-main {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #0f172a;
             margin-bottom: 1px;
         }
@@ -318,8 +351,8 @@
             background: rgba(255, 255, 255, 0.75);
             border: 1px solid rgba(0,0,0,0.08);
             color: #334155;
-            font-size: 0.65rem;
-            padding: 1px 5px;
+            font-size: 0.6rem;
+            padding: 1px 4px;
             border-radius: 3px;
             font-weight: 600;
         }
@@ -343,7 +376,6 @@
         #clip-modal.show {
             display: flex;
         }
-        /* モーダル本体 */
         .modal-content {
             background: #ffffff;
             width: 100%;
@@ -361,7 +393,7 @@
             to { transform: scale(1); opacity: 1; }
         }
         .modal-header {
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: #f8fafc;
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -370,11 +402,11 @@
         }
         .modal-title {
             font-weight: bold;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             color: var(--primary-color);
         }
         .modal-body {
-            padding: 12px 16px;
+            padding: 10px 14px;
             overflow-y: auto;
             flex-grow: 1;
             display: flex;
@@ -382,7 +414,7 @@
             gap: 6px;
         }
         .modal-footer {
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: #f8fafc;
             border-top: 1px solid var(--border-color);
             display: flex;
@@ -398,9 +430,9 @@
             transform: translate(-50%, -50%) scale(0.9);
             background-color: rgba(15, 23, 42, 0.92);
             color: #ffffff;
-            padding: 14px 28px;
-            border-radius: 12px;
-            font-size: 0.95rem;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 0.9rem;
             font-weight: bold;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
             z-index: 9999;
@@ -410,8 +442,6 @@
             text-align: center;
             backdrop-filter: blur(4px);
             max-width: 85vw;
-            line-height: 1.5;
-            word-break: auto-phrase;
         }
         #toast.show {
             opacity: 1;
@@ -430,40 +460,48 @@
         <div class="header-sub" id="header-year-sub">読み込み中...</div>
     </header>
 
-    <!-- 検索エリア -->
+    <!-- 検索エリア（折りたたみ可能） -->
     <div class="search-card">
-        <div class="search-grid">
-            <div class="search-field">
-                <label>学校区分</label>
-                <select id="s-type" onchange="filterData()">
-                    <option value="">すべて</option>
-                    <option value="1">国立</option>
-                    <option value="2">公立</option>
-                    <option value="3">私立</option>
-                    <option value="4">国公立短大</option>
-                    <option value="5">私立短大</option>
-                    <option value="6">大学校</option>
-                    <option value="8">専門</option>
-                </select>
+        <div class="search-card-header" onclick="toggleSearchCollapse()">
+            <div class="search-card-title">
+                <span id="search-toggle-icon">▼</span> 🔍 検索条件・絞り込み
             </div>
-            <div class="search-field">
-                <label>大学名</label>
-                <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="filterData()">
-            </div>
-            <div class="search-field">
-                <label>学部名</label>
-                <input type="text" id="s-fac" placeholder="例: 理" oninput="filterData()">
-            </div>
-            <div class="search-field">
-                <label>学科名</label>
-                <input type="text" id="s-dept" placeholder="例: 物理" oninput="filterData()">
-            </div>
-            <div class="search-field">
-                <label>日程方式名</label>
-                <input type="text" id="s-method" placeholder="例: 前期" oninput="filterData()">
+            <div style="font-size: 0.7rem; color: var(--primary-color); font-weight: bold;" id="search-status-label">タップして開閉</div>
+        </div>
+        <div class="search-body" id="search-body">
+            <div class="search-grid">
+                <div class="search-field">
+                    <label>学校区分</label>
+                    <select id="s-type" onchange="filterData()">
+                        <option value="">すべて</option>
+                        <option value="1">国立</option>
+                        <option value="2">公立</option>
+                        <option value="3">私立</option>
+                        <option value="4">国公立短大</option>
+                        <option value="5">私立短大</option>
+                        <option value="6">大学校</option>
+                        <option value="8">専門</option>
+                    </select>
+                </div>
+                <div class="search-field">
+                    <label>大学名</label>
+                    <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="filterData()">
+                </div>
+                <div class="search-field">
+                    <label>学部名</label>
+                    <input type="text" id="s-fac" placeholder="例: 理" oninput="filterData()">
+                </div>
+                <div class="search-field">
+                    <label>学科名</label>
+                    <input type="text" id="s-dept" placeholder="例: 物理" oninput="filterData()">
+                </div>
+                <div class="search-field">
+                    <label>日程方式名</label>
+                    <input type="text" id="s-method" placeholder="例: 前期" oninput="filterData()">
+                </div>
             </div>
         </div>
-        <div class="search-info-box" id="match-count-box">
+        <div class="search-info-box" id="match-count-box" style="margin-top: 6px;">
             <span>データ読み込み中...</span>
         </div>
     </div>
@@ -496,7 +534,7 @@
         </div>
         <div class="modal-footer">
             <button class="success" onclick="copyListAsText()">📝 リストをテキストでコピー</button>
-            <button onclick="closeClipModal()">閉じる</button>
+            <button class="secondary" onclick="closeClipModal()">閉じる</button>
         </div>
     </div>
 </div>
@@ -517,6 +555,21 @@
         toast.className = "show" + (isError ? " error" : "");
         if (window.toastTimer) clearTimeout(window.toastTimer);
         window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
+    }
+
+    // 検索エリアの開閉切り替え
+    function toggleSearchCollapse() {
+        const body = document.getElementById("search-body");
+        const icon = document.getElementById("search-toggle-icon");
+        const label = document.getElementById("search-status-label");
+        body.classList.toggle("collapsed");
+        if (body.classList.contains("collapsed")) {
+            icon.innerText = "▶";
+            label.innerText = "タップして展開";
+        } else {
+            icon.innerText = "▼";
+            label.innerText = "タップして折りたたむ";
+        }
     }
 
     async function loadGitHubCSV() {
@@ -638,7 +691,7 @@
 
         if (!qType && !qUniv && !qFac && !qDept && !qMethod) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍 上の学校区分や検索窓から条件を指定してください</div>`;
+            container.innerHTML = `<div class="guide-msg">🔍 上の検索条件を開いて条件を指定してください</div>`;
             return;
         }
 
@@ -850,7 +903,6 @@
         modalContainer.innerHTML = cardsHtml;
     }
 
-    // モーダルを開閉する関数
     function openClipModal() {
         document.getElementById("clip-modal").classList.add("show");
     }
@@ -859,7 +911,6 @@
         document.getElementById("clip-modal").classList.remove("show");
     }
 
-    // リストをテキストにしてクリップボードにコピー
     function copyListAsText() {
         if (savedList.length === 0) {
             showToast("コピーする項目がありません", true);
