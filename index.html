@@ -19,36 +19,76 @@
             color: var(--text-color);
             margin: 0;
             padding: 6px;
+            padding-top: 54px; /* 固定ヘッダー分の余白 */
         }
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
         
-        /* ヘッダーのレイアウト */
+        /* 最上部固定ヘッダー（ショッピングカート風） */
         header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+            z-index: 900;
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 6px;
-            background: var(--card-bg);
-            padding: 8px 12px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            gap: 8px;
+            align-items: center;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        .header-title-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         h1 {
             font-size: 0.85rem;
             margin: 0;
             color: var(--primary-color);
             white-space: nowrap;
+            line-height: 1.2;
         }
         .header-sub {
-            font-size: 0.7rem;
+            font-size: 0.62rem;
             color: #64748b;
             font-weight: bold;
-            text-align: right;
             white-space: nowrap;
+        }
+
+        /* 右上の「🛒 転記用リスト」カートボタン */
+        .cart-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 5px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .cart-button:hover {
+            background: #dbeafe;
+            border-color: #93c5fd;
+        }
+        .cart-badge {
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 0.7rem;
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-weight: bold;
         }
 
         button {
@@ -70,7 +110,7 @@
         button.secondary { background-color: #64748b; }
         button.secondary:hover { background-color: #475569; }
         
-        /* 検索カード（折りたたみ対応） */
+        /* 検索カード */
         .search-card {
             background: var(--card-bg);
             padding: 8px 10px;
@@ -94,23 +134,23 @@
             gap: 6px;
         }
         
-        /* PCでは横に5つ並び、スマホなどでは画面幅に合わせて自動調整 */
         .search-body {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            display: flex;
+            flex-direction: column;
             gap: 6px;
             margin-top: 8px;
             border-top: 1px dashed #e2e8f0;
             padding-top: 8px;
         }
-        @media (max-width: 1024px) {
-            .search-body {
-                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            }
-        }
-
         .search-body.collapsed {
             display: none;
+        }
+
+        /* 下4つを2列（2x2）にするグリッドレイアウト */
+        .search-grid-bottom {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
         }
 
         /* Excel風レイアウト（左：項目名、右：入力ボックス） */
@@ -125,10 +165,10 @@
         .search-field label {
             background: #e2e8f0;
             color: #334155;
-            font-size: 0.65rem;
+            font-size: 0.68rem;
             font-weight: bold;
-            padding: 4px 6px;
-            min-width: 65px;
+            padding: 5px 6px;
+            min-width: 72px;
             text-align: center;
             border-right: 1px solid var(--border-color);
             box-sizing: border-box;
@@ -136,7 +176,7 @@
         }
         .search-field input, .search-field select {
             flex-grow: 1;
-            padding: 4px 6px;
+            padding: 5px 6px;
             border: none;
             font-size: 0.75rem;
             box-sizing: border-box;
@@ -249,51 +289,10 @@
         .table-container {
             background: transparent;
             margin-bottom: 8px;
-            max-height: 60vh;
+            max-height: 65vh;
             overflow-y: auto;
-        }
-        .clip-table-container {
-            max-height: 150px;
-            overflow-y: auto;
-            margin-bottom: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
         }
 
-        /* 保存リストエリア */
-        .clip-section {
-            background: var(--card-bg);
-            padding: 8px 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            border: 2px dashed var(--primary-color);
-            margin-bottom: 12px;
-        }
-        .clip-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-        .clip-title-area {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .clip-title {
-            font-weight: bold;
-            font-size: 0.8rem;
-            color: var(--primary-color);
-        }
-        .clip-count {
-            background: #dbeafe;
-            color: #1e40af;
-            padding: 2px 6px;
-            border-radius: 8px;
-            font-size: 0.65rem;
-            font-weight: bold;
-        }
         #status-msg, .guide-msg {
             text-align: center;
             padding: 15px;
@@ -329,11 +328,6 @@
             align-items: center;
             justify-content: space-between;
             gap: 6px;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-        .sub-card:hover {
-            background: #f1f5f9;
         }
         .sub-card-code-area {
             display: flex;
@@ -503,13 +497,20 @@
 </head>
 <body>
 
-<div class="container">
-    <header>
+<header>
+    <div class="header-title-group">
         <h1>大学入試 5桁コード逆引き</h1>
         <div class="header-sub" id="header-year-sub">読み込み中...</div>
-    </header>
+    </div>
+    <!-- 右上ショッピングカート風ボタン -->
+    <div class="cart-button" onclick="openClipModal()">
+        <span>🛒 転記用リスト</span>
+        <span class="cart-badge" id="cart-count">0</span>
+    </div>
+</header>
 
-    <!-- 検索エリア（PCで5列横並び） -->
+<div class="container">
+    <!-- 検索エリア -->
     <div class="search-card">
         <div class="search-card-header" onclick="toggleSearchCollapse()">
             <div class="search-card-title">
@@ -518,6 +519,7 @@
             <div style="font-size: 0.7rem; color: var(--primary-color); font-weight: bold;" id="search-status-label">タップして開閉</div>
         </div>
         <div class="search-body" id="search-body">
+            <!-- 上段：学校区分（全幅） -->
             <div class="search-field">
                 <label>学校区分</label>
                 <select id="s-type" onchange="saveAndFilter()">
@@ -531,21 +533,24 @@
                     <option value="8">専門</option>
                 </select>
             </div>
-            <div class="search-field">
-                <label>大学名</label>
-                <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
-            </div>
-            <div class="search-field">
-                <label>学部名</label>
-                <input type="text" id="s-fac" placeholder="例: 理" oninput="saveAndFilter()">
-            </div>
-            <div class="search-field">
-                <label>学科名</label>
-                <input type="text" id="s-dept" placeholder="例: 物理" oninput="saveAndFilter()">
-            </div>
-            <div class="search-field">
-                <label>日程方式名</label>
-                <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
+            <!-- 下段：下4つを2x2列（2列×2段）で配置 -->
+            <div class="search-grid-bottom">
+                <div class="search-field">
+                    <label>大学名</label>
+                    <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
+                </div>
+                <div class="search-field">
+                    <label>学部名</label>
+                    <input type="text" id="s-fac" placeholder="例: 理" oninput="saveAndFilter()">
+                </div>
+                <div class="search-field">
+                    <label>学科名</label>
+                    <input type="text" id="s-dept" placeholder="例: 物理" oninput="saveAndFilter()">
+                </div>
+                <div class="search-field">
+                    <label>日程方式名</label>
+                    <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
+                </div>
             </div>
         </div>
         <div class="search-info-box" id="match-count-box" style="margin-top: 6px;">
@@ -556,29 +561,13 @@
     <!-- 検索結果一覧 -->
     <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
     <div class="table-container" id="result-container"></div>
-
-    <!-- 転記用リスト -->
-    <div class="clip-section">
-        <div class="clip-header">
-            <div class="clip-title-area">
-                <div class="clip-title">📋 転記用リスト（最大50件）</div>
-                <div class="clip-count" id="clip-count">0 / 50件</div>
-            </div>
-            <div>
-                <button class="danger" style="padding: 3px 8px; font-size: 0.65rem;" onclick="confirmClearAll()">すべてクリア</button>
-            </div>
-        </div>
-        <div class="clip-table-container" id="clip-container">
-            <div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>
-        </div>
-    </div>
 </div>
 
-<!-- 転記用リスト モーダルウィンドウ -->
+<!-- 転記用リスト モーダルウィンドウ（右上のカートを叩くと開く） -->
 <div id="clip-modal" onclick="closeClipModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
-            <div class="modal-title">📋 転記用リスト（全画面表示）</div>
+            <div class="modal-title">🛒 転記用リスト（保存一覧）</div>
             <button onclick="closeClipModal()">閉じる ✕</button>
         </div>
         <div class="modal-body" id="modal-clip-container">
@@ -1006,15 +995,13 @@
     }
 
     function renderSavedList() {
-        const container = document.getElementById("clip-container");
         const modalContainer = document.getElementById("modal-clip-container");
-        document.getElementById("clip-count").innerText = `${savedList.length} / 50件`;
+        document.getElementById("cart-count").innerText = `${savedList.length}`;
 
-        if (!container || !modalContainer) return;
+        if (!modalContainer) return;
 
         if (savedList.length === 0) {
             const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
-            container.innerHTML = emptyHtml;
             modalContainer.innerHTML = emptyHtml;
             return;
         }
@@ -1035,10 +1022,10 @@
             const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
             cardsHtml += `
-                <div class="sub-card ${bgClass}" onclick="openClipModal()">
+                <div class="sub-card ${bgClass}">
                     <div class="sub-card-code-area">
                         <div class="sub-card-code">${item.code}</div>
-                        <button class="danger" onclick="event.stopPropagation(); removeFromList(${idx})">削除</button>
+                        <button class="danger" onclick="removeFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
                         <div class="sub-card-main">${mainStr}</div>
@@ -1048,7 +1035,6 @@
             `;
         });
 
-        container.innerHTML = cardsHtml;
         modalContainer.innerHTML = cardsHtml;
     }
 
