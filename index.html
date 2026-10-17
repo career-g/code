@@ -93,44 +93,56 @@
             align-items: center;
             gap: 6px;
         }
+        
+        /* PCでは横に5つ並び、スマホなどでは画面幅に合わせて自動調整 */
         .search-body {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
             gap: 6px;
             margin-top: 8px;
             border-top: 1px dashed #e2e8f0;
             padding-top: 8px;
         }
+        @media (max-width: 1024px) {
+            .search-body {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+        }
+
         .search-body.collapsed {
             display: none;
         }
 
-        .search-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 6px;
-        }
-        .search-field label {
-            display: block;
-            font-size: 0.65rem;
-            font-weight: bold;
-            margin-bottom: 2px;
-            color: #64748b;
-        }
-        .search-field input, .search-field select {
-            width: 100%;
-            padding: 4px 6px;
+        /* Excel風レイアウト（左：項目名、右：入力ボックス） */
+        .search-field {
+            display: flex;
+            align-items: center;
+            background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 5px;
+            overflow: hidden;
+        }
+        .search-field label {
+            background: #e2e8f0;
+            color: #334155;
+            font-size: 0.65rem;
+            font-weight: bold;
+            padding: 4px 6px;
+            min-width: 65px;
+            text-align: center;
+            border-right: 1px solid var(--border-color);
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+        .search-field input, .search-field select {
+            flex-grow: 1;
+            padding: 4px 6px;
+            border: none;
             font-size: 0.75rem;
             box-sizing: border-box;
-            background: #f8fafc;
-        }
-        .search-field input:focus, .search-field select:focus {
-            outline: none;
-            border-color: var(--primary-color);
             background: #fff;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            outline: none;
+            width: 100%;
         }
         
         /* 目立つ件数表示エリア */
@@ -241,8 +253,12 @@
             overflow-y: auto;
         }
         .clip-table-container {
-            max-height: 200px;
+            max-height: 150px;
+            overflow-y: auto;
             margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
         /* 保存リストエリア */
@@ -253,11 +269,6 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             border: 2px dashed var(--primary-color);
             margin-bottom: 12px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .clip-section:hover {
-            background: #f0f7ff;
         }
         .clip-header {
             display: flex;
@@ -318,6 +329,11 @@
             align-items: center;
             justify-content: space-between;
             gap: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .sub-card:hover {
+            background: #f1f5f9;
         }
         .sub-card-code-area {
             display: flex;
@@ -465,6 +481,24 @@
         #toast.error {
             background-color: rgba(220, 38, 38, 0.95);
         }
+        /* トースト内2択確認用スタイル */
+        .toast-confirm-box {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            pointer-events: auto;
+        }
+        .toast-btn-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        .toast-btn-group button {
+            padding: 6px 16px;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -475,7 +509,7 @@
         <div class="header-sub" id="header-year-sub">読み込み中...</div>
     </header>
 
-    <!-- 検索エリア（折りたたみ可能） -->
+    <!-- 検索エリア（PCで5列横並び） -->
     <div class="search-card">
         <div class="search-card-header" onclick="toggleSearchCollapse()">
             <div class="search-card-title">
@@ -484,36 +518,34 @@
             <div style="font-size: 0.7rem; color: var(--primary-color); font-weight: bold;" id="search-status-label">タップして開閉</div>
         </div>
         <div class="search-body" id="search-body">
-            <div class="search-grid">
-                <div class="search-field">
-                    <label>学校区分</label>
-                    <select id="s-type" onchange="saveAndFilter()">
-                        <option value="">すべて</option>
-                        <option value="1">国立</option>
-                        <option value="2">公立</option>
-                        <option value="3">私立</option>
-                        <option value="4">国公立短大</option>
-                        <option value="5">私立短大</option>
-                        <option value="6">大学校</option>
-                        <option value="8">専門</option>
-                    </select>
-                </div>
-                <div class="search-field">
-                    <label>大学名</label>
-                    <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
-                </div>
-                <div class="search-field">
-                    <label>学部名</label>
-                    <input type="text" id="s-fac" placeholder="例: 理" oninput="saveAndFilter()">
-                </div>
-                <div class="search-field">
-                    <label>学科名</label>
-                    <input type="text" id="s-dept" placeholder="例: 物理" oninput="saveAndFilter()">
-                </div>
-                <div class="search-field">
-                    <label>日程方式名</label>
-                    <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
-                </div>
+            <div class="search-field">
+                <label>学校区分</label>
+                <select id="s-type" onchange="saveAndFilter()">
+                    <option value="">すべて</option>
+                    <option value="1">国立</option>
+                    <option value="2">公立</option>
+                    <option value="3">私立</option>
+                    <option value="4">国公立短大</option>
+                    <option value="5">私立短大</option>
+                    <option value="6">大学校</option>
+                    <option value="8">専門</option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label>大学名</label>
+                <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
+            </div>
+            <div class="search-field">
+                <label>学部名</label>
+                <input type="text" id="s-fac" placeholder="例: 理" oninput="saveAndFilter()">
+            </div>
+            <div class="search-field">
+                <label>学科名</label>
+                <input type="text" id="s-dept" placeholder="例: 物理" oninput="saveAndFilter()">
+            </div>
+            <div class="search-field">
+                <label>日程方式名</label>
+                <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
             </div>
         </div>
         <div class="search-info-box" id="match-count-box" style="margin-top: 6px;">
@@ -525,18 +557,18 @@
     <div id="status-msg">GitHubから「code.csv」を読み込んでいます...</div>
     <div class="table-container" id="result-container"></div>
 
-    <!-- 転記用リスト（タップでモーダル表示） -->
-    <div class="clip-section" onclick="openClipModal()">
+    <!-- 転記用リスト -->
+    <div class="clip-section">
         <div class="clip-header">
             <div class="clip-title-area">
                 <div class="clip-title">📋 転記用リスト（最大50件）</div>
                 <div class="clip-count" id="clip-count">0 / 50件</div>
             </div>
             <div>
-                <button class="danger" style="padding: 3px 8px; font-size: 0.65rem;" onclick="event.stopPropagation(); clearAllList();">すべてクリア</button>
+                <button class="danger" style="padding: 3px 8px; font-size: 0.65rem;" onclick="confirmClearAll()">すべてクリア</button>
             </div>
         </div>
-        <div class="table-container clip-table-container" id="clip-container" onclick="event.stopPropagation()">
+        <div class="clip-table-container" id="clip-container">
             <div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>
         </div>
     </div>
@@ -554,7 +586,7 @@
         </div>
         <div class="modal-footer">
             <div class="modal-footer-left">
-                <button class="danger" onclick="clearAllList()">すべてクリア</button>
+                <button class="danger" onclick="confirmClearAll()">すべてクリア</button>
             </div>
             <div class="modal-footer-right">
                 <button class="success" onclick="copyListAsText()">📝 テキストコピー</button>
@@ -576,12 +608,25 @@
         loadGitHubCSV();
     });
 
-    function showToast(message, isError = false) {
+    function showToast(message, isError = false, customHtml = "") {
         const toast = document.getElementById("toast");
-        toast.innerText = message;
+        if (customHtml) {
+            toast.innerHTML = customHtml;
+        } else {
+            toast.innerText = message;
+        }
         toast.className = "show" + (isError ? " error" : "");
         if (window.toastTimer) clearTimeout(window.toastTimer);
-        window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
+        
+        if (!customHtml) {
+            window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
+        }
+    }
+
+    function hideToast() {
+        const toast = document.getElementById("toast");
+        toast.className = "";
+        if (window.toastTimer) clearTimeout(window.toastTimer);
     }
 
     function toggleSearchCollapse() {
@@ -641,7 +686,7 @@
             const code = codeKey !== undefined ? row[colMap[codeKey]] : '';
             const univ = univKey !== undefined ? row[colMap[univKey]] : '';
             const fac = facKey !== undefined ? row[colMap[facKey]] : '';
-            const dept = deptKey !== undefined ? row[colMap[deptKey]] : '';
+            const deptActual = deptKey !== undefined ? row[colMap[deptKey]] : '';
             const methodName = methodNameKey !== undefined ? row[colMap[methodNameKey]] : '';
             const typeVal = typeKey !== undefined ? String(row[colMap[typeKey]]).trim() : '';
             
@@ -655,7 +700,7 @@
                     code: String(code).replace(/\.0$/, '').padStart(5, '0'),
                     univ: univ && univ !== 'nan' ? univ : '',
                     fac: fac && fac !== 'nan' ? fac : '学部なし',
-                    dept: dept && dept !== 'nan' && dept !== 'NaN' ? dept : '',
+                    dept: deptActual && deptActual !== 'nan' && deptActual !== 'NaN' ? deptActual : '',
                     methodName: methodName && methodName !== 'nan' ? methodName : '',
                     schoolType: typeVal,
                     shortName: shortNameVal && shortNameVal !== 'nan' ? shortNameVal : ''
@@ -840,7 +885,7 @@
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
                                 <div class="sub-card-code">${item.code}</div>
-                                <button onclick='addToList(${JSON.stringify(item)})'>保存</button>
+                                <button onclick='event.stopPropagation(); addToList(${JSON.stringify(item)})'>保存</button>
                             </div>
                             <div class="sub-card-content">
                                 <div class="sub-card-main">${mainStr}</div>
@@ -914,19 +959,30 @@
         renderSavedList();
     }
 
-    // リストをすべてクリアする関数
-    function clearAllList() {
+    function confirmClearAll() {
         if (savedList.length === 0) {
-            showToast("転記用リストはすでに空です", true);
+            showToast("転記用リストに項目が追加されていません", true);
             return;
         }
-        if (confirm("転記用リストの項目をすべて削除しますか？")) {
-            savedList = [];
-            saveListToStorage();
-            renderSavedList();
-            closeClipModal();
-            showToast("転記用リストをすべてクリアしました");
-        }
+
+        const confirmHtml = `
+            <div class="toast-confirm-box">
+                <div>本当にクリアしますか？</div>
+                <div class="toast-btn-group">
+                    <button class="danger" onclick="executeClearAll()">クリア</button>
+                    <button class="secondary" onclick="hideToast()">キャンセル</button>
+                </div>
+            </div>
+        `;
+        showToast("", true, confirmHtml);
+    }
+
+    function executeClearAll() {
+        savedList = [];
+        saveListToStorage();
+        renderSavedList();
+        closeClipModal();
+        showToast("転記用リストをすべてクリアしました");
     }
 
     function saveListToStorage() {
@@ -937,18 +993,24 @@
         try {
             const saved = localStorage.getItem("exam_saved_list");
             if (saved) {
-                savedList = JSON.parse(saved);
-                renderSavedList();
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    savedList = parsed;
+                }
             }
         } catch (e) {
             console.error("転記用リストの復元に失敗しました", e);
+            savedList = [];
         }
+        renderSavedList();
     }
 
     function renderSavedList() {
         const container = document.getElementById("clip-container");
         const modalContainer = document.getElementById("modal-clip-container");
         document.getElementById("clip-count").innerText = `${savedList.length} / 50件`;
+
+        if (!container || !modalContainer) return;
 
         if (savedList.length === 0) {
             const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
@@ -973,10 +1035,10 @@
             const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
             cardsHtml += `
-                <div class="sub-card ${bgClass}">
+                <div class="sub-card ${bgClass}" onclick="openClipModal()">
                     <div class="sub-card-code-area">
                         <div class="sub-card-code">${item.code}</div>
-                        <button class="danger" onclick="removeFromList(${idx})">削除</button>
+                        <button class="danger" onclick="event.stopPropagation(); removeFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
                         <div class="sub-card-main">${mainStr}</div>
