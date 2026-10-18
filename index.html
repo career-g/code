@@ -154,8 +154,8 @@
             display: none;
         }
 
-        /* 2x2グリッド */
-        .search-grid-top {
+        /* 2列グリッド構造 */
+        .search-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 4px 6px;
@@ -358,7 +358,7 @@
             font-weight: 600;
         }
 
-        /* モーダル背景（画面中央配置） */
+        /* モーダル背景 */
         #clip-modal {
             display: none;
             position: fixed;
@@ -376,13 +376,12 @@
         }
         #clip-modal.show { display: flex; }
         
-        /* モーダル本体（高さを可変に修正してバランス調整） */
         .modal-content {
             background: #ffffff;
             width: 100%;
             max-width: 600px;
-            height: auto;           /* 固定高さをやめて可変に */
-            max-height: 80vh;       /* 件数が多い時のみ80%まで拡大 */
+            height: auto;
+            max-height: 80vh;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             display: flex;
@@ -485,6 +484,20 @@
             box-sizing: border-box;
             border-radius: 6px;
         }
+
+        /* 画面右下に表示する超極小＆薄いタイムスタンプ */
+        .last-updated {
+            position: fixed;
+            bottom: 3px;
+            right: 6px;
+            font-size: 0.55rem;
+            color: #94a3b8; /* うすいグレー */
+            opacity: 0.7;
+            z-index: 800;
+            pointer-events: none;
+            font-family: monospace;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -509,7 +522,7 @@
             <div style="font-size: 0.68rem; color: var(--primary-color); font-weight: bold;" id="search-status-label">タップして開閉</div>
         </div>
         <div class="search-body" id="search-body">
-            <div class="search-grid-top">
+            <div class="search-grid">
                 <div class="search-field">
                     <label>大学名</label>
                     <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
@@ -526,19 +539,19 @@
                     <label>日程方式名</label>
                     <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
                 </div>
-            </div>
-            <div class="search-field">
-                <label>学校区分</label>
-                <select id="s-type" onchange="saveAndFilter()">
-                    <option value="">すべて</option>
-                    <option value="1">国立</option>
-                    <option value="2">公立</option>
-                    <option value="3">私立</option>
-                    <option value="4">国公立短大</option>
-                    <option value="5">私立短大</option>
-                    <option value="6">大学校</option>
-                    <option value="8">専門</option>
-                </select>
+                <div class="search-field">
+                    <label>学校区分</label>
+                    <select id="s-type" onchange="saveAndFilter()">
+                        <option value="">すべて</option>
+                        <option value="1">国立大</option>
+                        <option value="2">公立大</option>
+                        <option value="3">私立大</option>
+                        <option value="4">国公立短大</option>
+                        <option value="5">私立短大</option>
+                        <option value="6">大学校</option>
+                        <option value="8">専門学校</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div class="search-info-box" id="match-count-box" style="margin-top: 5px;">
@@ -574,6 +587,9 @@
 
 <div id="toast"></div>
 
+<!-- 画面右下に自動表示される薄い更新日時 -->
+<div class="last-updated" id="file-updated-time"></div>
+
 <script>
     let allData = [];
     let savedList = [];
@@ -582,7 +598,28 @@
         loadSavedListFromStorage();
         loadSearchConditions();
         loadGitHubCSV();
+        checkAutoVersion();
     });
+
+    async function checkAutoVersion() {
+        try {
+            const response = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+            const lastModifiedHeader = response.headers.get('Last-Modified');
+            
+            if (lastModifiedHeader) {
+                const date = new Date(lastModifiedHeader);
+                const yyyy = date.getFullYear();
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                const hh = String(date.getHours()).padStart(2, '0');
+                const min = String(date.getMinutes()).padStart(2, '0');
+
+                document.getElementById("file-updated-time").innerText = `Up: ${yyyy}/${mm}/${dd} ${hh}:${min}`;
+            }
+        } catch (e) {
+            console.error("更新日時の取得に失敗しました", e);
+        }
+    }
 
     function showToast(message, isError = false, customHtml = "") {
         const toast = document.getElementById("toast");
