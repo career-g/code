@@ -1029,3 +1029,109 @@
         hideToast();
         showToast("転記用リストをすべて削除しました");
     }
+
+    function saveListToStorage() {
+        localStorage.setItem("exam_saved_list", JSON.stringify(savedList));
+    }
+
+    function loadSavedListFromStorage() {
+        try {
+            const saved = localStorage.getItem("exam_saved_list");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    savedList = parsed;
+                }
+            }
+        } catch (e) {
+            console.error("転記用リストの復元に失敗しました", e);
+            savedList = [];
+        }
+        renderSavedList();
+    }
+
+    function renderSavedList() {
+        const modalContainer = document.getElementById("modal-clip-container");
+        const footerLeftArea = document.getElementById("modal-footer-left-area");
+        document.getElementById("cart-count").innerText = `${savedList.length}`;
+
+        if (!modalContainer) return;
+
+        if (savedList.length === 0) {
+            footerLeftArea.innerHTML = '';
+            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
+            modalContainer.innerHTML = emptyHtml;
+            return;
+        } else {
+            footerLeftArea.innerHTML = `<button class="danger" onclick="confirmClearAll()">すべて削除</button>`;
+        }
+
+        let cardsHtml = '';
+        savedList.forEach((item, idx) => {
+            const bgClass = getBgClass(item);
+            
+            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac}</span>`;
+            if (item.dept) {
+                mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
+            }
+            
+            let displayBadge = item.methodName;
+            if (!displayBadge && item.shortName) {
+                displayBadge = `(${item.shortName})`;
+            }
+            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
+
+            cardsHtml += `
+                <div class="sub-card ${bgClass}">
+                    <div class="sub-card-code-area">
+                        <div class="sub-card-code">${item.code}</div>
+                        <button class="sub-delete" onclick="confirmRemoveFromList(${idx})">削除</button>
+                    </div>
+                    <div class="sub-card-content">
+                        <div class="sub-card-main">${mainStr}</div>
+                        ${badgeHtml}
+                    </div>
+                </div>
+            `;
+        });
+
+        modalContainer.innerHTML = cardsHtml;
+    }
+
+    function openClipModal() {
+        if (savedList.length === 0) {
+            showToast("転記用リストに項目が追加されていません");
+            return;
+        }
+        document.getElementById("clip-modal").classList.add("show");
+        document.body.classList.add("modal-open");
+    }
+
+    function closeClipModal() {
+        document.getElementById("clip-modal").classList.remove("show");
+        document.body.classList.remove("modal-open");
+    }
+
+    function copyListAsText() {
+        if (savedList.length === 0) {
+            showToast("コピーする項目がありません");
+            return;
+        }
+
+        let textData = savedList.map((item, idx) => {
+            let deptStr = item.dept ? ` ${item.dept}` : '';
+            let badgeStr = item.methodName || (item.shortName ? `(${item.shortName})` : '');
+            badgeStr = badgeStr ? ` [${badgeStr}]` : '';
+            return `${idx + 1}. 【${item.code}】 ${item.univ} ${item.fac}${deptStr}${badgeStr}`;
+        }).join("\n");
+
+        navigator.clipboard.writeText(textData).then(() => {
+            showToast("転記用リストをテキストでコピーしました！");
+        }).catch(err => {
+            showToast("コピーに失敗しました");
+        });
+    }
+</script>
+
+</body>
+</html>
