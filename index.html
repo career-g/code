@@ -441,26 +441,27 @@
         .modal-footer-left { display: flex; gap: 6px; }
         .modal-footer-right { display: flex; gap: 6px; }
 
-        /* トースト通知 */
+        /* トースト通知 (落ち着いたダークグレー背景に修正) */
         #toast {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.9);
-            background-color: rgba(15, 23, 42, 0.92);
+            background-color: rgba(15, 23, 42, 0.96);
             color: #ffffff;
-            padding: 10px 20px;
-            border-radius: 10px;
+            padding: 16px 20px;
+            border-radius: 12px;
             font-size: 0.85rem;
             font-weight: bold;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-            z-index: 9999;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 1100;
             opacity: 0;
             transition: opacity 0.25s ease, transform 0.25s ease;
             pointer-events: none;
             text-align: center;
             backdrop-filter: blur(4px);
             max-width: 85vw;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         #toast.show {
             opacity: 1;
@@ -587,8 +588,8 @@
             <!-- 動的挿入 -->
         </div>
         <div class="modal-footer">
-            <div class="modal-footer-left">
-                <button class="danger" onclick="confirmClearAll()">すべて削除</button>
+            <div class="modal-footer-left" id="modal-footer-left-area">
+                <!-- 0件時は非表示、あり時は表示 -->
             </div>
             <div class="modal-footer-right">
                 <button class="success" onclick="copyListAsText()">📝 テキストコピー</button>
@@ -815,7 +816,7 @@
 
         if (!qType && !qUniv && !qFac && !qDept && !qMethod) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍上の検索条件を開いて条件を指定してください</div>`;
+            container.innerHTML = `<div class="guide-msg">🔍 上の検索条件を開いて条件を指定してください</div>`;
             return;
         }
 
@@ -982,6 +983,9 @@
         saveListToStorage();
         showToast("リストから削除しました");
         renderSavedList();
+        if (savedList.length === 0) {
+            closeClipModal();
+        }
     }
 
     function confirmClearAll() {
@@ -1032,14 +1036,18 @@
 
     function renderSavedList() {
         const modalContainer = document.getElementById("modal-clip-container");
+        const footerLeftArea = document.getElementById("modal-footer-left-area");
         document.getElementById("cart-count").innerText = `${savedList.length}`;
 
         if (!modalContainer) return;
 
         if (savedList.length === 0) {
+            footerLeftArea.innerHTML = '';
             const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
             modalContainer.innerHTML = emptyHtml;
             return;
+        } else {
+            footerLeftArea.innerHTML = `<button class="danger" onclick="confirmClearAll()">すべて削除</button>`;
         }
 
         let cardsHtml = '';
@@ -1061,7 +1069,6 @@
                 <div class="sub-card ${bgClass}">
                     <div class="sub-card-code-area">
                         <div class="sub-card-code">${item.code}</div>
-                        <!-- 控えめなグレーの削除ボタン -->
                         <button class="sub-delete" onclick="removeFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
