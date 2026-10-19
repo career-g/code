@@ -117,6 +117,19 @@
         button.success:hover { background-color: #15803d; }
         button.secondary { background-color: #64748b; }
         button.secondary:hover { background-color: #475569; }
+
+        /* 個別カード用の控えめな削除ボタン */
+        button.sub-delete {
+            background-color: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+            font-weight: normal;
+        }
+        button.sub-delete:hover {
+            background-color: #e2e8f0;
+            color: #334155;
+            border-color: #94a3b8;
+        }
         
         /* 検索カード */
         .search-card {
@@ -491,7 +504,7 @@
             bottom: 3px;
             right: 6px;
             font-size: 0.55rem;
-            color: #94a3b8; /* うすいグレー */
+            color: #94a3b8;
             opacity: 0.7;
             z-index: 800;
             pointer-events: none;
@@ -575,11 +588,10 @@
         </div>
         <div class="modal-footer">
             <div class="modal-footer-left">
-                <button class="danger" onclick="confirmClearAll()">すべてクリア</button>
+                <button class="danger" onclick="confirmClearAll()">すべて削除</button>
             </div>
             <div class="modal-footer-right">
                 <button class="success" onclick="copyListAsText()">📝 テキストコピー</button>
-                <button class="secondary" onclick="closeClipModal()">閉じる</button>
             </div>
         </div>
     </div>
@@ -803,7 +815,7 @@
 
         if (!qType && !qUniv && !qFac && !qDept && !qMethod) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍 上の検索条件を開いて条件を指定してください</div>`;
+            container.innerHTML = `<div class="guide-msg">🔍上の検索条件を開いて条件を指定してください</div>`;
             return;
         }
 
@@ -980,9 +992,9 @@
 
         const confirmHtml = `
             <div class="toast-confirm-box">
-                <div class="toast-confirm-title">本当にクリアしますか？</div>
+                <div class="toast-confirm-title">本当にすべて削除しますか？</div>
                 <div class="toast-btn-group-vertical">
-                    <button class="danger" onclick="executeClearAll()">クリア</button>
+                    <button class="danger" onclick="executeClearAll()">すべて削除</button>
                     <button class="secondary" onclick="hideToast()">キャンセル</button>
                 </div>
             </div>
@@ -995,7 +1007,7 @@
         saveListToStorage();
         renderSavedList();
         closeClipModal();
-        showToast("転記用リストをすべてクリアしました");
+        showToast("転記用リストをすべて削除しました");
     }
 
     function saveListToStorage() {
@@ -1049,7 +1061,8 @@
                 <div class="sub-card ${bgClass}">
                     <div class="sub-card-code-area">
                         <div class="sub-card-code">${item.code}</div>
-                        <button class="danger" onclick="removeFromList(${idx})">削除</button>
+                        <!-- 控えめなグレーの削除ボタン -->
+                        <button class="sub-delete" onclick="removeFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
                         <div class="sub-card-main">${mainStr}</div>
