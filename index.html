@@ -111,11 +111,11 @@
             white-space: nowrap;
         }
         button:hover { background-color: var(--primary-hover); }
-        button.danger { background-color: #dc2626; }
+        button.danger { background-color: #dc2626; color: #ffffff; }
         button.danger:hover { background-color: #b91c1c; }
         button.success { background-color: #16a34a; }
         button.success:hover { background-color: #15803d; }
-        button.secondary { background-color: #64748b; }
+        button.secondary { background-color: #64748b; color: #ffffff; }
         button.secondary:hover { background-color: #475569; }
 
         /* 個別カード用の控えめな削除ボタン */
@@ -441,47 +441,46 @@
         .modal-footer-left { display: flex; gap: 6px; }
         .modal-footer-right { display: flex; gap: 6px; }
 
-        /* トースト通知 (落ち着いたダークグレー背景) */
+        /* トースト・フェイルセーフダイアログ（完全独立・白背景で視認性極大） */
         #toast {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.9);
-            background-color: rgba(15, 23, 42, 0.96);
-            color: #ffffff;
-            padding: 16px 20px;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            padding: 18px 22px;
             border-radius: 12px;
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             font-weight: bold;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            z-index: 1100;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
+            z-index: 2000;
             opacity: 0;
-            transition: opacity 0.25s ease, transform 0.25s ease;
+            transition: opacity 0.2s ease, transform 0.2s ease;
             pointer-events: none;
             text-align: center;
-            backdrop-filter: blur(4px);
             max-width: 85vw;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 2px solid #e2e8f0;
         }
         #toast.show {
             opacity: 1;
             transform: translate(-50%, -50%) scale(1);
         }
-        #toast.error { background-color: rgba(220, 38, 38, 0.95); }
 
         .toast-confirm-box {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
             align-items: center;
             pointer-events: auto;
-            min-width: 220px;
-            padding: 4px 0;
+            min-width: 230px;
+            padding: 2px 0;
         }
         .toast-confirm-title {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: bold;
-            line-height: 1.2;
+            color: #0f172a;
+            line-height: 1.3;
             white-space: nowrap;
         }
         .toast-btn-group-vertical {
@@ -492,8 +491,8 @@
         }
         .toast-btn-group-vertical button {
             width: 100%;
-            padding: 8px 0;
-            font-size: 0.82rem;
+            padding: 9px 0;
+            font-size: 0.85rem;
             font-weight: bold;
             box-sizing: border-box;
             border-radius: 6px;
@@ -634,17 +633,17 @@
         }
     }
 
-    function showToast(message, isError = false, customHtml = "") {
+    function showToast(message, isConfirm = false, customHtml = "") {
         const toast = document.getElementById("toast");
         if (customHtml) {
             toast.innerHTML = customHtml;
         } else {
             toast.innerText = message;
         }
-        toast.className = "show" + (isError ? " error" : "");
+        toast.className = "show";
         if (window.toastTimer) clearTimeout(window.toastTimer);
         
-        if (!customHtml) {
+        if (!isConfirm && !customHtml) {
             window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
         }
     }
@@ -965,11 +964,11 @@
 
     function addToList(item) {
         if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName && i.shortName === item.shortName)) {
-            showToast("この項目はすでにリストに登録されています", true);
+            showToast("この項目はすでにリストに登録されています");
             return;
         }
         if (savedList.length >= 50) {
-            showToast("保存リストは最大50件までです", true);
+            showToast("保存リストは最大50件までです");
             return;
         }
         savedList.push(item);
@@ -978,19 +977,35 @@
         renderSavedList();
     }
 
-    function removeFromList(index) {
+    // 個別削除のフェイルセーフ確認ダイアログ
+    function confirmRemoveFromList(index) {
+        const confirmHtml = `
+            <div class="toast-confirm-box">
+                <div class="toast-confirm-title">削除しますか？</div>
+                <div class="toast-btn-group-vertical">
+                    <button class="danger" onclick="executeRemoveFromList(${index})">削除</button>
+                    <button class="secondary" onclick="hideToast()">キャンセル</button>
+                </div>
+            </div>
+        `;
+        showToast("", true, confirmHtml);
+    }
+
+    function executeRemoveFromList(index) {
         savedList.splice(index, 1);
         saveListToStorage();
-        showToast("リストから削除しました");
         renderSavedList();
+        hideToast();
+        showToast("リストから削除しました");
         if (savedList.length === 0) {
             closeClipModal();
         }
     }
 
+    // すべて削除のフェイルセーフ確認ダイアログ
     function confirmClearAll() {
         if (savedList.length === 0) {
-            showToast("転記用リストに項目が追加されていません", true);
+            showToast("転記用リストに項目が追加されていません");
             return;
         }
 
@@ -1011,111 +1026,6 @@
         saveListToStorage();
         renderSavedList();
         closeClipModal();
+        hideToast();
         showToast("転記用リストをすべて削除しました");
     }
-
-    function saveListToStorage() {
-        localStorage.setItem("exam_saved_list", JSON.stringify(savedList));
-    }
-
-    function loadSavedListFromStorage() {
-        try {
-            const saved = localStorage.getItem("exam_saved_list");
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    savedList = parsed;
-                }
-            }
-        } catch (e) {
-            console.error("転記用リストの復元に失敗しました", e);
-            savedList = [];
-        }
-        renderSavedList();
-    }
-
-    function renderSavedList() {
-        const modalContainer = document.getElementById("modal-clip-container");
-        const footerLeftArea = document.getElementById("modal-footer-left-area");
-        document.getElementById("cart-count").innerText = `${savedList.length}`;
-
-        if (!modalContainer) return;
-
-        if (savedList.length === 0) {
-            footerLeftArea.innerHTML = '';
-            const emptyHtml = `<div class="guide-msg small" id="clip-empty-msg">転記用リストに項目が追加されていません</div>`;
-            modalContainer.innerHTML = emptyHtml;
-            return;
-        } else {
-            footerLeftArea.innerHTML = `<button class="danger" onclick="confirmClearAll()">すべて削除</button>`;
-        }
-
-        let cardsHtml = '';
-        savedList.forEach((item, idx) => {
-            const bgClass = getBgClass(item);
-            
-            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac}</span>`;
-            if (item.dept) {
-                mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
-            }
-            
-            let displayBadge = item.methodName;
-            if (!displayBadge && item.shortName) {
-                displayBadge = `(${item.shortName})`;
-            }
-            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
-
-            cardsHtml += `
-                <div class="sub-card ${bgClass}">
-                    <div class="sub-card-code-area">
-                        <div class="sub-card-code">${item.code}</div>
-                        <button class="sub-delete" onclick="removeFromList(${idx})">削除</button>
-                    </div>
-                    <div class="sub-card-content">
-                        <div class="sub-card-main">${mainStr}</div>
-                        ${badgeHtml}
-                    </div>
-                </div>
-            `;
-        });
-
-        modalContainer.innerHTML = cardsHtml;
-    }
-
-    function openClipModal() {
-        if (savedList.length === 0) {
-            showToast("転記用リストに項目が追加されていません", true);
-            return;
-        }
-        document.getElementById("clip-modal").classList.add("show");
-        document.body.classList.add("modal-open");
-    }
-
-    function closeClipModal() {
-        document.getElementById("clip-modal").classList.remove("show");
-        document.body.classList.remove("modal-open");
-    }
-
-    function copyListAsText() {
-        if (savedList.length === 0) {
-            showToast("コピーする項目がありません", true);
-            return;
-        }
-
-        let textData = savedList.map((item, idx) => {
-            let deptStr = item.dept ? ` ${item.dept}` : '';
-            let badgeStr = item.methodName || (item.shortName ? `(${item.shortName})` : '');
-            badgeStr = badgeStr ? ` [${badgeStr}]` : '';
-            return `${idx + 1}. 【${item.code}】 ${item.univ} ${item.fac}${deptStr}${badgeStr}`;
-        }).join("\n");
-
-        navigator.clipboard.writeText(textData).then(() => {
-            showToast("転記用リストをテキストでコピーしました！");
-        }).catch(err => {
-            showToast("コピーに失敗しました", true);
-        });
-    }
-</script>
-
-</body>
-</html>
