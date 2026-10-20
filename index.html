@@ -112,7 +112,7 @@
         }
         button:hover { background-color: var(--primary-hover); }
         
-        /* 落ち着いた上品な赤（マットな赤）に調整 */
+        /* 落ち着いた上品な赤（マットな赤） */
         button.danger { 
             background-color: #b91c1c; 
             color: #ffffff; 
@@ -258,6 +258,22 @@
             align-items: center;
             gap: 6px;
         }
+        
+        /* 学校区分別のカラーバッジ */
+        .type-badge {
+            font-size: 0.62rem;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .type-kokuritsu { background-color: #2563eb; }
+        .type-koritsu   { background-color: #16a34a; }
+        .type-shiritsu  { background-color: #d97706; }
+        .type-other     { background-color: #64748b; }
+
         .univ-count-badge {
             background: #e2e8f0;
             color: #475569;
@@ -449,7 +465,7 @@
         .modal-footer-left { display: flex; gap: 6px; }
         .modal-footer-right { display: flex; gap: 6px; }
 
-        /* トースト・フェイルセーフダイアログ（ダークネイビーのすりガラス風） */
+        /* トースト・フェイルセーフダイアログ */
         #toast {
             position: fixed;
             top: 50%;
@@ -733,7 +749,8 @@
                 parsed.push({
                     code: String(code).replace(/\.0$/, '').padStart(5, '0'),
                     univ: univ && univ !== 'nan' ? univ : '',
-                    fac: fac && fac !== 'nan' ? fac : '学部なし',
+                    // CSV本来のデータが空、あるいは「学部なし」の場合は空文字として保持
+                    fac: fac && fac !== 'nan' && fac !== '学部なし' ? fac : '',
                     dept: deptActual && deptActual !== 'nan' && deptActual !== 'NaN' ? deptActual : '',
                     methodName: methodName && methodName !== 'nan' ? methodName : '',
                     schoolType: typeVal,
@@ -780,6 +797,20 @@
         if (text.includes('後期')) return "bg-koki";
         
         return "bg-dokuji";
+    }
+
+    function getTypeBadgeHtml(schoolType) {
+        const type = String(schoolType).trim();
+        switch (type) {
+            case '1': return '<span class="type-badge type-kokuritsu">国</span>';
+            case '2': return '<span class="type-badge type-koritsu">公</span>';
+            case '3': return '<span class="type-badge type-shiritsu">私</span>';
+            case '4': return '<span class="type-badge type-other">国短</span>';
+            case '5': return '<span class="type-badge type-other">私短</span>';
+            case '6': return '<span class="type-badge type-other">大学校</span>';
+            case '8': return '<span class="type-badge type-other">専門</span>';
+            default:  return '';
+        }
     }
 
     function saveAndFilter() {
@@ -863,16 +894,19 @@
         const univGrouped = {};
         list.forEach(item => {
             if (!univGrouped[item.univ]) {
-                univGrouped[item.univ] = [];
+                univGrouped[item.univ] = { items: [], schoolType: item.schoolType };
             }
-            univGrouped[item.univ].push(item);
+            univGrouped[item.univ].items.push(item);
         });
 
         const univNames = Object.keys(univGrouped);
         let html = '';
 
         univNames.forEach((univName, index) => {
-            const univItems = univGrouped[univName];
+            const univData = univGrouped[univName];
+            const univItems = univData.items;
+            const schoolType = univData.schoolType;
+            
             const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
             let isOpen = false;
             if (qUniv) {
@@ -883,10 +917,12 @@
 
             const facGrouped = {};
             univItems.forEach(item => {
-                if (!facGrouped[item.fac]) {
-                    facGrouped[item.fac] = [];
+                // 画面表示用のグループ名（空なら「学部なし」とするが、データ自体は保持）
+                const displayFac = item.fac ? item.fac : '学部なし';
+                if (!facGrouped[displayFac]) {
+                    facGrouped[displayFac] = [];
                 }
-                facGrouped[item.fac].push(item);
+                facGrouped[displayFac].push(item);
             });
 
             let facHtml = '';
@@ -904,7 +940,8 @@
                 facItems.forEach(item => {
                     const bgClass = getBgClass(item);
                     
-                    let mainStr = `<span class="bold-fac">${item.fac}</span>`;
+                    // 画面表示用：学部名が空のときは「学部なし」を表示、学科があれば並べる
+                    let mainStr = `<span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
                     if (item.dept) {
                         mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
                     }
@@ -939,10 +976,13 @@
                 `;
             });
 
+            const typeBadgeHtml = getTypeBadgeHtml(schoolType);
+
             html += `
                 <div class="univ-group ${isOpen ? 'open' : ''}" id="univ-group-${index}">
                     <div class="univ-header" onclick="toggleUnivGroup(${index})">
                         <div class="univ-header-left">
+                            ${typeBadgeHtml}
                             <span>${univName}</span>
                             <span class="univ-count-badge">${univItems.length}件</span>
                         </div>
@@ -1079,7 +1119,8 @@
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
             
-            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac}</span>`;
+            // 画面表示用
+            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
             if (item.dept) {
                 mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
             }
@@ -1121,17 +1162,22 @@
         document.body.classList.remove("modal-open");
     }
 
+    // CSVとしてそのまま扱いやすい形式にテキストを整形して出力する関数
     function copyListAsText() {
         if (savedList.length === 0) {
             showToast("コピーする項目がありません");
             return;
         }
 
+        // CSV互換や読み取りを考慮し、「学部なし」などの便宜上文字を入れず、データがなければ空欄にする
         let textData = savedList.map((item, idx) => {
-            let deptStr = item.dept ? ` ${item.dept}` : '';
-            let badgeStr = item.methodName || (item.shortName ? `(${item.shortName})` : '');
-            badgeStr = badgeStr ? ` [${badgeStr}]` : '';
-            return `${idx + 1}. 【${item.code}】 ${item.univ} ${item.fac}${deptStr}${badgeStr}`;
+            let facStr = item.fac ? item.fac : '';
+            let deptStr = item.dept ? item.dept : '';
+            let methodStr = item.methodName ? item.methodName : '';
+            
+            // 例: 1. 【14341】 名古屋 | | 人文 | 前期  のように、空欄箇所をスッキリさせるフォーマット
+            // タブ区切りまたは見やすい形式に調整可能ですが、構造を保持します
+            return `${idx + 1}. 【${item.code}】 ${item.univ} | ${facStr} | ${deptStr} | ${methodStr}`;
         }).join("\n");
 
         navigator.clipboard.writeText(textData).then(() => {
