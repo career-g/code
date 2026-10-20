@@ -62,9 +62,23 @@
             white-space: nowrap;
             line-height: 1.1;
         }
+        .header-sub-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
         .header-sub {
             font-size: 0.6rem;
             color: #64748b;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .header-note {
+            font-size: 0.55rem;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 0 4px;
+            border-radius: 3px;
             font-weight: bold;
             white-space: nowrap;
         }
@@ -576,7 +590,10 @@
 <header>
     <div class="header-title-group">
         <h1>大学入試 5桁コード逆引き</h1>
-        <div class="header-sub" id="header-year-sub">読み込み中...</div>
+        <div class="header-sub-row">
+            <div class="header-sub" id="header-year-sub">読み込み中...</div>
+            <div class="header-note">第3回全統模試対応</div>
+        </div>
     </div>
     <div class="cart-button" onclick="openClipModal()">
         <span>📑 転記用リスト</span>
@@ -663,7 +680,7 @@
 <script>
     let allData = [];
     let savedList = [];
-    let dataMap = {}; // 安全な参照用のマップ
+    let dataMap = {};
 
     window.addEventListener("DOMContentLoaded", () => {
         loadSavedListFromStorage();
@@ -1013,7 +1030,6 @@
         }
     }
 
-    // 安全なID指定による追加処理
     function addById(id) {
         const item = dataMap[id];
         if (!item) return;
