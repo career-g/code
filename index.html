@@ -667,17 +667,25 @@
     window.addEventListener("DOMContentLoaded", () => {
         loadSavedListFromStorage();
         loadSearchConditions();
-        loadGitHubCSV();
-        checkAutoVersion();
+        initApp();
     });
 
-    async function checkAutoVersion() {
+    async function initApp() {
+        await checkAutoVersionAndLoadCSV();
+    }
+
+    // 自動で最終更新日時を検知し、それをキャッシュ無効化のキー（バージョン）としてCSVを取得する
+    async function checkAutoVersionAndLoadCSV() {
         try {
-            const response = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
-            const lastModifiedHeader = response.headers.get('Last-Modified');
+            // まずCSVのヘッダー情報を取得して最終更新日時(Last-Modified)を確認
+            const headResponse = await fetch('./code.csv', { method: 'HEAD', cache: 'no-store' });
+            const lastModifiedHeader = headResponse.headers.get('Last-Modified');
             
+            let cacheVersion = Date.now(); // 取得できない場合のフォールバック（現在時刻）
             if (lastModifiedHeader) {
                 const date = new Date(lastModifiedHeader);
+                cacheVersion = date.getTime(); // 最終更新日時のミリ秒をバージョンにする
+
                 const yyyy = date.getFullYear();
                 const mm = String(date.getMonth() + 1).padStart(2, '0');
                 const dd = String(date.getDate()).padStart(2, '0');
@@ -686,52 +694,13 @@
 
                 document.getElementById("file-updated-time").innerText = `Up: ${yyyy}/${mm}/${dd} ${hh}:${min}`;
             }
-        } catch (e) {
-            console.error("更新日時の取得に失敗しました", e);
-        }
-    }
 
-    function showToast(message, isConfirm = false, customHtml = "") {
-        const toast = document.getElementById("toast");
-        if (customHtml) {
-            toast.innerHTML = customHtml;
-        } else {
-            toast.innerText = message;
-        }
-        toast.className = "show";
-        if (window.toastTimer) clearTimeout(window.toastTimer);
-        
-        if (!isConfirm && !customHtml) {
-            window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
-        }
-    }
-
-    function hideToast() {
-        const toast = document.getElementById("toast");
-        toast.className = "";
-        if (window.toastTimer) clearTimeout(window.toastTimer);
-    }
-
-    function toggleSearchCollapse() {
-        const body = document.getElementById("search-body");
-        const icon = document.getElementById("search-toggle-icon");
-        const label = document.getElementById("search-status-label");
-        body.classList.toggle("collapsed");
-        if (body.classList.contains("collapsed")) {
-            icon.innerText = "▶";
-            label.innerText = "タップして展開";
-        } else {
-            icon.innerText = "▼";
-            label.innerText = "タップして折りたたむ";
-        }
-    }
-
-    async function loadGitHubCSV() {
-        try {
-            const response = await fetch('./code.csv', { cache: 'no-store' });
-            if (!response.ok) throw new Error("「code.csv」が見つかりませんでした。");
-            const text = await response.text();
+            // 検知した更新日時をクエリに付与してCSVを取得（更新時のみ自動で再取得、普段はキャッシュが効いて高速）
+            const csvResponse = await fetch(`./code.csv?v=${cacheVersion}`);
+            if (!csvResponse.ok) throw new Error("「code.csv」が見つかりませんでした。");
+            const text = await csvResponse.text();
             parseCSV(text);
+
         } catch (err) {
             document.getElementById("status-msg").innerText = "エラー: " + err.message;
             document.getElementById("match-count-box").innerText = "読み込み失敗";
@@ -1056,12 +1025,10 @@
         renderSavedList();
     }
 
-    // 順序入れ替え関数（indexをdirの方向に1つ動かす: dir = -1 で上、1 で下）
     function moveSavedItem(index, dir) {
         const targetIndex = index + dir;
         if (targetIndex < 0 || targetIndex >= savedList.length) return;
         
-        // 要素をスワップ（入れ替え）
         const temp = savedList[index];
         savedList[index] = savedList[targetIndex];
         savedList[targetIndex] = temp;
@@ -1070,7 +1037,6 @@
         renderSavedList();
     }
 
-    // 個別削除のフェイルセーフ確認ダイアログ
     function confirmRemoveFromList(index) {
         const confirmHtml = `
             <div class="toast-confirm-box">
@@ -1095,7 +1061,6 @@
         }
     }
 
-    // すべて削除のフェイルセーフ確認ダイアログ
     function confirmClearAll() {
         if (savedList.length === 0) {
             showToast("転記用リストに項目が追加されていません");
@@ -1164,7 +1129,6 @@
             const bgClass = getBgClass(item);
             const typeBadgeHtml = getTypeBadgeHtml(item.schoolType);
             
-            // 画面表示用（大学名の直前に学校区分バッジを配置）
             let mainStr = `${typeBadgeHtml}<strong>${item.univ}</strong> <span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
             if (item.dept) {
                 mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
@@ -1176,7 +1140,6 @@
             }
             const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
-            // 上下移動ボタンの無効化判定
             const isFirst = idx === 0;
             const isLast = idx === savedList.length - 1;
 
