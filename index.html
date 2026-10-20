@@ -667,24 +667,19 @@
     window.addEventListener("DOMContentLoaded", () => {
         loadSavedListFromStorage();
         loadSearchConditions();
-        initApp();
+        loadGitHubCSV();
     });
 
-    async function initApp() {
-        await checkAutoVersionAndLoadCSV();
-    }
-
-    // 自動で最終更新日時を検知し、それをキャッシュ無効化のキー（バージョン）としてCSVを取得する
-    async function checkAutoVersionAndLoadCSV() {
+    // 安全にCSVを読み込む関数（エラー時も確実に動作し、保存ボタンが止まらないように担保）
+    async function loadGitHubCSV() {
+        let cacheVersion = Date.now();
         try {
-            // まずCSVのヘッダー情報を取得して最終更新日時(Last-Modified)を確認
             const headResponse = await fetch('./code.csv', { method: 'HEAD', cache: 'no-store' });
             const lastModifiedHeader = headResponse.headers.get('Last-Modified');
             
-            let cacheVersion = Date.now(); // 取得できない場合のフォールバック（現在時刻）
             if (lastModifiedHeader) {
                 const date = new Date(lastModifiedHeader);
-                cacheVersion = date.getTime(); // 最終更新日時のミリ秒をバージョンにする
+                cacheVersion = date.getTime();
 
                 const yyyy = date.getFullYear();
                 const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -694,13 +689,15 @@
 
                 document.getElementById("file-updated-time").innerText = `Up: ${yyyy}/${mm}/${dd} ${hh}:${min}`;
             }
+        } catch (e) {
+            console.warn("更新日時の取得をスキップしました（通常読込にフォールバック）", e);
+        }
 
-            // 検知した更新日時をクエリに付与してCSVを取得（更新時のみ自動で再取得、普段はキャッシュが効いて高速）
+        try {
             const csvResponse = await fetch(`./code.csv?v=${cacheVersion}`);
             if (!csvResponse.ok) throw new Error("「code.csv」が見つかりませんでした。");
             const text = await csvResponse.text();
             parseCSV(text);
-
         } catch (err) {
             document.getElementById("status-msg").innerText = "エラー: " + err.message;
             document.getElementById("match-count-box").innerText = "読み込み失敗";
