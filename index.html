@@ -663,6 +663,7 @@
 <script>
     let allData = [];
     let savedList = [];
+    let dataMap = {}; // 安全な参照用のマップ
 
     window.addEventListener("DOMContentLoaded", () => {
         loadSavedListFromStorage();
@@ -670,7 +671,6 @@
         loadGitHubCSV();
     });
 
-    // 安全にCSVを読み込む関数（エラー時も確実に動作し、保存ボタンが止まらないように担保）
     async function loadGitHubCSV() {
         let cacheVersion = Date.now();
         try {
@@ -690,7 +690,7 @@
                 document.getElementById("file-updated-time").innerText = `Up: ${yyyy}/${mm}/${dd} ${hh}:${min}`;
             }
         } catch (e) {
-            console.warn("更新日時の取得をスキップしました（通常読込にフォールバック）", e);
+            console.warn("更新日時の取得をスキップしました", e);
         }
 
         try {
@@ -723,6 +723,8 @@
 
         let detectedYear = '';
         const parsed = [];
+        dataMap = {};
+
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
             const row = parseCSVLine(lines[i]);
@@ -745,7 +747,9 @@
             }
 
             if (code && code !== 'NaN') {
-                parsed.push({
+                const id = 'item_' + i;
+                const itemObj = {
+                    id: id,
                     code: String(code).replace(/\.0$/, '').padStart(5, '0'),
                     univ: univ && univ !== 'nan' ? univ : '',
                     fac: fac && fac !== 'nan' && fac !== '学部なし' ? fac : '',
@@ -753,7 +757,9 @@
                     methodName: methodName && methodName !== 'nan' ? methodName : '',
                     schoolType: typeVal,
                     shortName: shortNameVal && shortNameVal !== 'nan' ? shortNameVal : ''
-                });
+                };
+                parsed.push(itemObj);
+                dataMap[id] = itemObj;
             }
         }
 
@@ -952,7 +958,7 @@
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
                                 <div class="sub-card-code">${item.code}</div>
-                                <button onclick='event.stopPropagation(); addToList(${JSON.stringify(item)})'>保存</button>
+                                <button onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
                             </div>
                             <div class="sub-card-content">
                                 <div class="sub-card-main">${mainStr}</div>
@@ -1005,6 +1011,13 @@
         if (!isOpen) {
             targetGroup.classList.add('open');
         }
+    }
+
+    // 安全なID指定による追加処理
+    function addById(id) {
+        const item = dataMap[id];
+        if (!item) return;
+        addToList(item);
     }
 
     function addToList(item) {
@@ -1194,6 +1207,41 @@
         }).catch(err => {
             showToast("コピーに失敗しました");
         });
+    }
+
+    function showToast(message, isConfirm = false, customHtml = "") {
+        const toast = document.getElementById("toast");
+        if (customHtml) {
+            toast.innerHTML = customHtml;
+        } else {
+            toast.innerText = message;
+        }
+        toast.className = "show";
+        if (window.toastTimer) clearTimeout(window.toastTimer);
+        
+        if (!isConfirm && !customHtml) {
+            window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
+        }
+    }
+
+    function hideToast() {
+        const toast = document.getElementById("toast");
+        toast.className = "";
+        if (window.toastTimer) clearTimeout(window.toastTimer);
+    }
+
+    function toggleSearchCollapse() {
+        const body = document.getElementById("search-body");
+        const icon = document.getElementById("search-toggle-icon");
+        const label = document.getElementById("search-status-label");
+        body.classList.toggle("collapsed");
+        if (body.classList.contains("collapsed")) {
+            icon.innerText = "▶";
+            label.innerText = "タップして展開";
+        } else {
+            icon.innerText = "▼";
+            label.innerText = "タップして折りたたむ";
+        }
     }
 </script>
 
