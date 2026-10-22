@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大学コード検索（第3回全統模試対応）</title>
+    <title>大学コード検索</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -213,6 +213,9 @@
             flex-direction: column;
             gap: 1px;
         }
+        .search-field.full-width {
+            grid-column: span 2;
+        }
         .search-field label {
             color: #475569;
             font-size: 0.63rem;
@@ -236,6 +239,14 @@
             box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
         
+        /* 注意書きスタイル */
+        .note-text {
+            font-size: 0.58rem;
+            color: #64748b;
+            margin-top: 2px;
+            line-height: 1.3;
+        }
+
         .search-info-box {
             background: #eff6ff;
             border: 1px solid #bfdbfe;
@@ -575,7 +586,7 @@
 
 <header>
     <div class="header-title-group">
-        <h1>大学コード検索（第3回全統模試対応）</h1>
+        <h1>大学コード検索</h1>
         <div class="header-sub" id="header-year-sub">読み込み中...</div>
     </div>
     <div class="cart-button" onclick="openClipModal()">
@@ -610,7 +621,7 @@
                     <label>日程方式名</label>
                     <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
                 </div>
-                <div class="search-field">
+                <div class="search-field full-width">
                     <label>学校区分</label>
                     <select id="s-type" onchange="saveAndFilter()">
                         <option value="">すべて</option>
@@ -622,6 +633,10 @@
                         <option value="6">大学校</option>
                         <option value="8">専門学校</option>
                     </select>
+                    <div class="note-text">
+			※第3回全統模試のコードを使用<br>
+			※短大・専門は昨年度(2026年度)までのコード。データがない、または変更されている場合があります。
+                    </div>
                 </div>
             </div>
         </div>
