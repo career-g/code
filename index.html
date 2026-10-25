@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大学コード検索</title>
+    <title>第3回全統模試 大学コード検索</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -206,15 +206,13 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 4px 6px;
+            align-items: end; /* 下揃えで綺麗に配置 */
         }
 
         .search-field {
             display: flex;
             flex-direction: column;
             gap: 1px;
-        }
-        .search-field.full-width {
-            grid-column: span 2;
         }
         .search-field label {
             color: #475569;
@@ -239,12 +237,12 @@
             box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
         
-        /* 注意書きスタイル */
-        .note-text {
-            font-size: 0.58rem;
+        /* 学校区分の右側にのっける注釈スタイル */
+        .note-box-right {
+            font-size: 0.55rem;
             color: #64748b;
-            margin-top: 2px;
-            line-height: 1.3;
+            line-height: 1.25;
+            padding-bottom: 2px;
         }
 
         .search-info-box {
@@ -586,7 +584,7 @@
 
 <header>
     <div class="header-title-group">
-        <h1>大学コード検索</h1>
+        <h1>第3回全統模試 大学コード検索</h1>
         <div class="header-sub" id="header-year-sub">読み込み中...</div>
     </div>
     <div class="cart-button" onclick="openClipModal()">
@@ -621,7 +619,7 @@
                     <label>日程方式名</label>
                     <input type="text" id="s-method" placeholder="例: 前期" oninput="saveAndFilter()">
                 </div>
-                <div class="search-field full-width">
+                <div class="search-field">
                     <label>学校区分</label>
                     <select id="s-type" onchange="saveAndFilter()">
                         <option value="">すべて</option>
@@ -633,10 +631,10 @@
                         <option value="6">大学校</option>
                         <option value="8">専門学校</option>
                     </select>
-                    <div class="note-text">
-			※第3回全統模試のコードを使用<br>
-			※短大・専門は昨年度(2026年度)までのコード。データがない、または変更されている場合があります。
-                    </div>
+                </div>
+                <div class="note-box-right">
+                    ※第3回全統模試のコードを使用<br>
+                    ※短大・専門は昨年度(2026年度)までのコード。データがない、または変更されている場合があります。
                 </div>
             </div>
         </div>
