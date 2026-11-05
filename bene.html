@@ -277,6 +277,24 @@
             gap: 6px;
         }
 
+        /* 学校区分別のカラーバッジ */
+        .type-badge {
+            font-size: 0.62rem;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 3px;
+        }
+        .type-kokuritsu { background-color: #2563eb; } /* 1: 国立大 */
+        .type-koritsu   { background-color: #16a34a; } /* 2: 公立大 */
+        .type-shiritsu  { background-color: #d97706; } /* 3: 私立大 */
+        .type-other     { background-color: #64748b; } /* 4〜9その他 */
+
         .univ-count-badge {
             background: #e2e8f0;
             color: #475569;
@@ -589,8 +607,19 @@
                     <input type="text" id="s-way" placeholder="例: 数学 / 理科" oninput="saveAndFilter()">
                 </div>
                 <div class="search-field">
-                    <label>都道府県CD</label>
-                    <input type="text" id="s-pref" placeholder="例: 01" oninput="saveAndFilter()">
+                    <label>学校区分</label>
+                    <select id="s-type" onchange="saveAndFilter()">
+                        <option value="">すべて</option>
+                        <option value="1">国立大 (1)</option>
+                        <option value="2">公立大 (2)</option>
+                        <option value="3">私立大 (3)</option>
+                        <option value="4">準大学 (4)</option>
+                        <option value="5">国／公立短大 (5)</option>
+                        <option value="6">私立短大 (6)</option>
+                        <option value="7">各種学校 (7)</option>
+                        <option value="8">看護学校 (8)</option>
+                        <option value="9">文部科学省管轄外 (9)</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -733,6 +762,9 @@
             if (uCode) {
                 const id = 'item_' + i;
                 const full10DigitCode = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
+                
+                // 千の位（大学コードの先頭1文字）から学校区分を判定
+                const schoolType = uCode.charAt(0);
 
                 const itemObj = {
                     id: id,
@@ -748,7 +780,8 @@
                     method: method,
                     way: way,
                     subName: subName,
-                    pref: pref
+                    pref: pref,
+                    schoolType: schoolType
                 };
                 parsed.push(itemObj);
                 dataMap[id] = itemObj;
@@ -781,14 +814,30 @@
         return "";
     }
 
+    function getTypeBadgeHtml(schoolType) {
+        const type = String(schoolType).trim();
+        switch (type) {
+            case '1': return '<span class="type-badge type-kokuritsu">国</span>';
+            case '2': return '<span class="type-badge type-koritsu">公</span>';
+            case '3': return '<span class="type-badge type-shiritsu">私</span>';
+            case '4': return '<span class="type-badge type-other">準大</span>';
+            case '5': return '<span class="type-badge type-other">国公短</span>';
+            case '6': return '<span class="type-badge type-other">私短</span>';
+            case '7': return '<span class="type-badge type-other">各種</span>';
+            case '8': return '<span class="type-badge type-other">看護</span>';
+            case '9': return '<span class="type-badge type-other">管外</span>';
+            default:  return '';
+        }
+    }
+
     function saveAndFilter() {
         const conditions = {
+            type: document.getElementById("s-type").value,
             univ: document.getElementById("s-univ").value,
             fac: document.getElementById("s-fac").value,
             dept: document.getElementById("s-dept").value,
             method: document.getElementById("s-method").value,
-            way: document.getElementById("s-way").value,
-            pref: document.getElementById("s-pref").value
+            way: document.getElementById("s-way").value
         };
         localStorage.setItem("benesse_search_conditions_10", JSON.stringify(conditions));
         filterData();
@@ -799,12 +848,12 @@
             const saved = localStorage.getItem("benesse_search_conditions_10");
             if (saved) {
                 const c = JSON.parse(saved);
+                if (c.type !== undefined) document.getElementById("s-type").value = c.type;
                 if (c.univ !== undefined) document.getElementById("s-univ").value = c.univ;
                 if (c.fac !== undefined) document.getElementById("s-fac").value = c.fac;
                 if (c.dept !== undefined) document.getElementById("s-dept").value = c.dept;
                 if (c.method !== undefined) document.getElementById("s-method").value = c.method;
                 if (c.way !== undefined) document.getElementById("s-way").value = c.way;
-                if (c.pref !== undefined) document.getElementById("s-pref").value = c.pref;
             }
         } catch (e) {
             console.error("検索条件の復元に失敗しました", e);
@@ -814,29 +863,29 @@
     function filterData() {
         if (allData.length === 0) return;
 
+        const qType = document.getElementById("s-type").value;
         const qUniv = document.getElementById("s-univ").value.trim().toLowerCase();
         const qFac = document.getElementById("s-fac").value.trim().toLowerCase();
         const qDept = document.getElementById("s-dept").value.trim().toLowerCase();
         const qMethod = document.getElementById("s-method").value.trim().toLowerCase();
         const qWay = document.getElementById("s-way").value.trim().toLowerCase();
-        const qPref = document.getElementById("s-pref").value.trim();
 
         const countBox = document.getElementById("match-count-box");
         const container = document.getElementById("result-container");
 
-        if (!qUniv && !qFac && !qDept && !qMethod && !qWay && !qPref) {
+        if (!qType && !qUniv && !qFac && !qDept && !qMethod && !qWay) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
             container.innerHTML = `<div class="guide-msg">🔍 条件を入力してデータを絞り込んでください</div>`;
             return;
         }
 
         const filtered = allData.filter(item => {
+            if (qType && item.schoolType !== qType) return false;
             if (qUniv && !item.univ.toLowerCase().includes(qUniv)) return false;
             if (qFac && !item.fac.toLowerCase().includes(qFac)) return false;
             if (qDept && !item.dept.toLowerCase().includes(qDept) && !item.subName.toLowerCase().includes(qDept)) return false;
             if (qMethod && !item.method.toLowerCase().includes(qMethod)) return false;
             if (qWay && !item.way.toLowerCase().includes(qWay)) return false;
-            if (qPref && item.pref !== qPref) return false;
             return true;
         });
 
@@ -866,19 +915,20 @@
         const univGrouped = {};
         list.forEach(item => {
             if (!univGrouped[item.univ]) {
-                univGrouped[item.univ] = { items: [] };
+                univGrouped[item.univ] = { items: [], schoolType: item.schoolType };
             }
             univGrouped[item.univ].items.push(item);
         });
 
         const univNames = Object.keys(univGrouped);
         let html = '';
-
-        // 【変更点】ヒットした大学が1つだけ、または完全一致の場合は自動オープン
         const isSingleUniv = (univNames.length === 1);
 
         univNames.forEach((univName, index) => {
-            const univItems = univGrouped[univName].items;
+            const univData = univGrouped[univName];
+            const univItems = univData.items;
+            const schoolType = univData.schoolType;
+            
             const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
             let isOpen = (qUniv && (isExactMatch || isSingleUniv)) || (!qUniv && index === 0) || isSingleUniv;
 
@@ -937,10 +987,13 @@
                 `;
             });
 
+            const typeBadgeHtml = getTypeBadgeHtml(schoolType);
+
             html += `
                 <div class="univ-group ${isOpen ? 'open' : ''}" id="univ-group-${index}">
                     <div class="univ-header" onclick="toggleUnivGroup(${index})">
                         <div class="univ-header-left">
+                            ${typeBadgeHtml}
                             <span>${univName}</span>
                             <span class="univ-count-badge">${univItems.length}件</span>
                         </div>
@@ -1091,8 +1144,9 @@
         let cardsHtml = '';
         savedList.forEach((item, idx) => {
             const bgClass = getBgClass(item);
+            const typeBadgeHtml = getTypeBadgeHtml(item.schoolType);
             
-            let mainStr = `<strong>${item.univ}</strong> <span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
+            let mainStr = `${typeBadgeHtml}<strong>${item.univ}</strong> <span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
             if (item.dept) {
                 mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
             }
