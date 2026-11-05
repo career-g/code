@@ -364,7 +364,7 @@
             color: #64748b;
         }
 
-        /* 日程別背景色 */
+        /* 日程別背景色 (河合塾版と完全同一ロジック) */
         .bg-zenki  { background-color: #eff6ff !important; border-color: #bfdbfe !important; }
         .bg-chuki  { background-color: #fefce8 !important; border-color: #fef08a !important; }
         .bg-koki   { background-color: #fef2f2 !important; border-color: #fecaca !important; }
@@ -761,17 +761,14 @@
 
             if (uCode) {
                 const id = 'item_' + i;
-                // 完全な10桁コード
                 const raw10Code = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
-                // 画面表示用の 4桁-2桁-4桁 フォーマット
                 const displayCode = `${raw10Code.substring(0, 4)}-${raw10Code.substring(4, 6)}-${raw10Code.substring(6)}`;
-                
                 const schoolType = uCode.charAt(0);
 
                 const itemObj = {
                     id: id,
-                    rawCode: raw10Code,      // 転記テキスト用のハイフンなし10桁
-                    code: displayCode,       // 画面表示用の4桁-2桁-4桁
+                    rawCode: raw10Code,
+                    code: displayCode,
                     uCode: uCode,
                     fCode: fCode,
                     dCode: dCode,
@@ -808,13 +805,17 @@
         return result;
     }
 
+    // 河合塾版と完全同一：国公立（1または2）の 前期/中期/後期 だけ青・黄・赤、それ以外はすべて紫色
     function getBgClass(item) {
+        const type = String(item.schoolType);
+        if (type !== '1' && type !== '2') return "bg-dokuji"; 
+
         const text = item.method.toLowerCase();
         if (text.includes('前')) return "bg-zenki";
         if (text.includes('中')) return "bg-chuki";
         if (text.includes('後')) return "bg-koki";
-        if (text.includes('共')) return "bg-dokuji";
-        return "";
+        
+        return "bg-dokuji";
     }
 
     function getTypeBadgeHtml(schoolType) {
@@ -1203,7 +1204,6 @@
             return;
         }
 
-        // コピペ出力時はハイフンなしの10桁（item.rawCode）を出力
         let textData = savedList.map((item, idx) => {
             let badges = [];
             if (item.method) badges.push(item.method);
