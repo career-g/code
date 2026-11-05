@@ -6,7 +6,7 @@
     <title>河合塾 ＆ ベネッセ 統合コード検索</title>
     <style>
         :root {
-            --primary-color: #7c3aed; /* 統合イメージのパープル系 */
+            --primary-color: #7c3aed;
             --primary-hover: #6d28d9;
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
@@ -366,7 +366,7 @@
             flex-direction: column;
             align-items: flex-start;
             justify-content: center;
-            min-width: 145px;
+            min-width: 155px;
             padding-right: 6px;
             border-right: 1px solid rgba(0,0,0,0.08);
             font-size: 0.7rem;
@@ -576,26 +576,9 @@
         loadBothCSVs();
     });
 
-    // 大学名の表記ゆれや略称を正規化する関数（「名古屋工大」⇒「名古屋工業大学」等）
     function normalizeUnivName(name) {
         if (!name) return '';
         let clean = name.replace(/['\u3000\s]+/g, '').replace(/大学$/, '').replace(/大$/, '');
-        // よくある略称の統一マップ
-        const map = {
-            '名古屋工業': '名古屋工業',
-            '名古屋工': '名古屋工業',
-            '名工': '名古屋工業',
-            '名古屋': '名古屋',
-            '北海道': '北海道',
-            '東北': '東北',
-            '東京': '東京',
-            '京都': '京都',
-            '大阪': '大阪',
-            '九州': '九州',
-            '広島': '広島',
-            '岡山': '岡山'
-        };
-        // 主要な大学はベースを合わせる
         if (clean.includes('名古屋工業') || clean === '名工') return '名古屋工業大学';
         if (clean === '名古屋' || clean === '名大') return '名古屋大学';
         if (clean === '名古屋市立' || clean === '名市大') return '名古屋市立大学';
@@ -644,7 +627,7 @@
     function parseAndMerge(kawaiText, beneText) {
         // --- 河合塾パース ---
         const kLines = kawaiText.split(/\r\n|\n/);
-        const kHeaders = kLines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const kHeaders = kLines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').replace(/^'/, ''));
         const kCol = {};
         kHeaders.forEach((h, idx) => { kCol[h] = idx; });
 
@@ -663,16 +646,13 @@
 
             if (code) {
                 kList.push({
-                    source: 'kawai',
                     univ: univ,
                     normUniv: normalizeUnivName(univ),
                     fac: fac && fac !== '学部なし' ? fac : '',
                     dept: dept && dept !== '学科なし' ? dept : '',
                     method: method,
                     type: String(type),
-                    code5: row[kCol['大学コード']] || '',
-                    code10Kawai: String(code).padStart(10, '0'),
-                    rawItem: row
+                    code10Kawai: String(code).padStart(10, '0')
                 });
             }
         }
@@ -708,28 +688,22 @@
                 const schoolType = uCode.charAt(0);
 
                 bList.push({
-                    source: 'bene',
                     univ: univ,
                     normUniv: normalizeUnivName(univ),
                     fac: fac && fac !== '学部なし' ? fac : '',
                     dept: dept && dept !== '学科なし' ? dept : '',
                     method: method + (way ? ' ' + way : ''),
                     type: schoolType,
-                    codeBeneRaw: raw10,
-                    codeBeneDisplay: displayBene10,
-                    rawItem: row
+                    codeBeneDisplay: displayBene10
                 });
             }
         }
 
-        // --- データの突き合わせ（マッチング） ---
-        // 大学名 ＋ 学部 ＋ 学部・学科・日程の類似度で結合ペアを作る
+        // --- マッチング統合 ---
         let mergedMap = {};
         let counter = 1;
 
-        // まず河合塾データをベースに登録
         kList.forEach(k => {
-            const key = `${k.normUniv}_${k.fac}_${k.dept}_${k.method}`;
             const id = 'mix_' + (counter++);
             mergedMap[id] = {
                 id: id,
@@ -740,15 +714,11 @@
                 method: k.method,
                 type: k.type,
                 kawaiCode: k.code10Kawai,
-                beneCodeRaw: '',
-                beneCodeDisplay: '未設定（河合塾のみ）',
-                source: 'both'
+                beneCodeDisplay: '未設定（河合塾のみ）'
             };
         });
 
-        // ベネッセデータを統合・突合
         bList.forEach(b => {
-            // 一致する河合塾データを探す
             let matchedId = null;
             for (let id in mergedMap) {
                 let m = mergedMap[id];
@@ -761,11 +731,8 @@
             }
 
             if (matchedId) {
-                // すでに河合塾データがある場合はベネッセコードをドッキング！
-                mergedMap[matchedId].beneCodeRaw = b.codeBeneRaw;
                 mergedMap[matchedId].beneCodeDisplay = b.codeBeneDisplay;
             } else {
-                // 河合塾になく、ベネッセにしかない場合も新規追加（片方だけの救済）
                 const id = 'mix_' + (counter++);
                 mergedMap[id] = {
                     id: id,
@@ -776,9 +743,7 @@
                     method: b.method,
                     type: b.type,
                     kawaiCode: '未設定（ベネッセのみ）',
-                    beneCodeRaw: b.codeBeneRaw,
-                    beneCodeDisplay: b.codeBeneDisplay,
-                    source: 'both'
+                    beneCodeDisplay: b.codeBeneDisplay
                 };
             }
         });
@@ -857,7 +822,6 @@
 
         const filtered = unifiedData.filter(item => {
             if (qType && item.type !== qType) return false;
-            // 略称対応のあいまい検索
             if (qUniv && !item.univ.toLowerCase().includes(qUniv) && !item.normUniv.toLowerCase().includes(qUniv)) return false;
             if (qFac && !item.fac.toLowerCase().includes(qFac)) return false;
             if (qDept && !item.dept.toLowerCase().includes(qDept)) return false;
@@ -880,11 +844,10 @@
 
         countBox.innerHTML = `<span>該当件数</span><span class="highlight-count">${list.length.toLocaleString()} 件</span>`;
 
-        // 大学ごとにグループ化
         const univGrouped = {};
         list.forEach(item => {
             if (!univGrouped[item.univ]) {
-                univGrouped[item.univ] { items: [], type: item.type };
+                univGrouped[item.univ] = { items: [], type: item.type };
             }
             univGrouped[item.univ].items.push(item);
         });
@@ -900,7 +863,6 @@
             
             let isOpen = (qUniv && isSingleUniv) || (!qUniv && index === 0) || isSingleUniv;
 
-            // 学部ごとにグループ化
             const facGrouped = {};
             univItems.forEach(item => {
                 const displayFac = item.fac ? item.fac : '学部なし';
