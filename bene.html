@@ -385,17 +385,17 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-width: 85px;
+            min-width: 95px;
             padding-right: 6px;
             border-right: 1px solid rgba(0,0,0,0.08);
         }
         .sub-card-code {
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: bold;
             color: var(--primary-color);
             margin-bottom: 1px;
-            letter-spacing: -0.5px;
+            letter-spacing: -0.3px;
         }
         .sub-card-content { flex-grow: 1; }
         
@@ -761,14 +761,17 @@
 
             if (uCode) {
                 const id = 'item_' + i;
-                const full10DigitCode = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
+                // 完全な10桁コード
+                const raw10Code = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
+                // 画面表示用の 4桁-2桁-4桁 フォーマット
+                const displayCode = `${raw10Code.substring(0, 4)}-${raw10Code.substring(4, 6)}-${raw10Code.substring(6)}`;
                 
-                // 千の位（大学コードの先頭1文字）から学校区分を判定
                 const schoolType = uCode.charAt(0);
 
                 const itemObj = {
                     id: id,
-                    code: full10DigitCode,
+                    rawCode: raw10Code,      // 転記テキスト用のハイフンなし10桁
+                    code: displayCode,       // 画面表示用の4桁-2桁-4桁
                     uCode: uCode,
                     fCode: fCode,
                     dCode: dCode,
@@ -1029,7 +1032,7 @@
     }
 
     function addToList(item) {
-        if (savedList.some(i => i.code === item.code && i.univ === item.univ)) {
+        if (savedList.some(i => i.rawCode === item.rawCode && i.univ === item.univ)) {
             showToast("この項目はすでにリストに登録されています");
             return;
         }
@@ -1200,13 +1203,14 @@
             return;
         }
 
+        // コピペ出力時はハイフンなしの10桁（item.rawCode）を出力
         let textData = savedList.map((item, idx) => {
             let badges = [];
             if (item.method) badges.push(item.method);
             if (item.way) badges.push(item.way);
             let badgeStr = badges.length > 0 ? ` | ${badges.join(' ')}` : '';
 
-            return `${idx + 1}. 【${item.code}】 ${item.univ} | ${item.fac || ''} | ${item.dept || ''}${badgeStr}`;
+            return `${idx + 1}. 【${item.rawCode}】 ${item.univ} | ${item.fac || ''} | ${item.dept || ''}${badgeStr}`;
         }).join("\n");
 
         navigator.clipboard.writeText(textData).then(() => {
