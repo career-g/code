@@ -595,7 +595,7 @@
                     <input type="text" id="s-fac" placeholder="例: 医" oninput="saveAndFilter()">
                 </div>
                 <div class="search-field">
-                    <label>学科名 / 小分類名</label>
+                    <label>学科名</label>
                     <input type="text" id="s-dept" placeholder="例: 看護" oninput="saveAndFilter()">
                 </div>
                 <div class="search-field">
@@ -807,7 +807,6 @@
 
     function getBgClass(item) {
         const type = String(item.schoolType);
-        // 国立(1)・公立(2)以外は背景色をつけない（河合塾版と同一）
         if (type !== '1' && type !== '2') return ""; 
 
         const text = item.method.toLowerCase();
