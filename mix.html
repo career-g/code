@@ -585,7 +585,6 @@
 
     async function loadBothCSVs() {
         try {
-            // 1. 河合塾データの読み込み (code.csv - Shift-JIS or UTF-8)
             const kawaiRes = await fetch('./code.csv');
             if (!kawaiRes.ok) throw new Error("「code.csv」が見つかりません。");
             const kawaiBuffer = await kawaiRes.arrayBuffer();
@@ -598,7 +597,6 @@
                 kawaiText = decoder.decode(kawaiBuffer);
             }
             
-            // 2. ベネッセデータの読み込み (benecode.csv)
             const beneRes = await fetch('./benecode.csv');
             if (!beneRes.ok) throw new Error("「benecode.csv」が見つかりません。");
             const beneBuffer = await beneRes.arrayBuffer();
@@ -643,8 +641,10 @@
             const row = parseCSVLine(kLines[i]);
             if (row.length < kHeaders.length) continue;
 
-            // 河合塾の5桁コードを取得（「記入用大学コード(５桁)」または「大学コード」）
-            const kCode5 = row[kCol['記入用大学コード(５桁)']] || row[kCol['大学コード']] || '';
+            // 河合塾の5桁コード列を柔軟に探索（全角・半角の5桁、あるいは記入用コード等）
+            const kCode5Key = Object.keys(kCol).find(k => k.includes('記入用大学コード') || k.includes('5桁') || k.includes('５桁'));
+            const kCode5 = kCode5Key ? row[kCol[kCode5Key]] : (row[kCol['大学コード']] || '');
+            
             const univ = row[kCol['大学名']] || '';
             const fac = row[kCol['学部名']] || '';
             const dept = row[kCol['学科名']] || '';
@@ -706,11 +706,10 @@
             }
         }
 
-        // --- マッチング統合 ---
+        // --- マッチング統合（厳格化） ---
         let mergedMap = {};
         let counter = 1;
 
-        // まず河合塾データをベースに登録
         kList.forEach(k => {
             const id = 'mix_' + (counter++);
             mergedMap[id] = {
@@ -726,16 +725,19 @@
             };
         });
 
-        // ベネッセデータを突き合わせ
         bList.forEach(b => {
             let matchedId = null;
             for (let id in mergedMap) {
                 let m = mergedMap[id];
-                if (m.normUniv === b.normUniv && 
-                    (m.fac === b.fac || (b.fac && m.fac.includes(b.fac)) || (b.fac && b.fac.includes(m.fac))) &&
-                    (m.dept === b.dept || (b.dept && m.dept.includes(b.dept)) || (b.dept && b.dept.includes(m.dept)))) {
-                    matchedId = id;
-                    break;
+                if (m.normUniv === b.normUniv) {
+                    // 空文字の誤爆を防ぎつつ、学部・学科・日程が一致または包含関係にあるかチェック
+                    const facMatch = (!m.fac && !b.fac) || (m.fac && b.fac && (m.fac === b.fac || m.fac.includes(b.fac) || b.fac.includes(m.fac)));
+                    const deptMatch = (!m.dept && !b.dept) || (m.dept && b.dept && (m.dept === b.dept || m.dept.includes(b.dept) || b.dept.includes(m.dept)));
+                    
+                    if (facMatch && deptMatch) {
+                        matchedId = id;
+                        break;
+                    }
                 }
             }
 
