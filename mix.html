@@ -574,7 +574,6 @@
         loadBothCSVs();
     });
 
-    // 大学名をきれいに正規化する関数（スペース・「大学」「大」の除去、末尾の全角スペース等も考慮）
     function normalizeUnivName(name) {
         if (!name) return '';
         let clean = String(name).replace(/['\u3000\s]+/g, '').replace(/大学$/, '').replace(/大$/, '');
@@ -586,14 +585,13 @@
 
     async function loadBothCSVs() {
         try {
-            // パスを相対パス（./code.csv, ./benecode.csv）に固定してGitHub Pagesでも確実に行き来できるようにする
             const kawaiRes = await fetch('./code.csv');
-            if (!kawaiRes.ok) throw new Error("「code.csv」が見つかりません（404）。ファイル名や配置場所を確認してください。");
+            if (!kawaiRes.ok) throw new Error("「code.csv」が見つかりません（404）。");
             const kawaiBuffer = await kawaiRes.arrayBuffer();
             let kawaiText = decodeTextWithFallback(kawaiBuffer);
             
             const beneRes = await fetch('./benecode.csv');
-            if (!beneRes.ok) throw new Error("「benecode.csv」が見つかりません（404）。ファイル名や配置場所を確認してください。");
+            if (!beneRes.ok) throw new Error("「benecode.csv」が見つかりません（404）。");
             const beneBuffer = await beneRes.arrayBuffer();
             let beneText = decodeTextWithFallback(beneBuffer);
 
@@ -605,7 +603,6 @@
         }
     }
 
-    // 文字コードの自動判別デコーダー (Shift-JIS / CP932 / UTF-8)
     function decodeTextWithFallback(buffer) {
         const encodings = ["shift_jis", "cp932", "utf-8"];
         for (let enc of encodings) {
@@ -615,7 +612,6 @@
                 if (text && text.length > 0) return text;
             } catch(e) {}
         }
-        // フォールバックとして致命的エラーにならないようUTF-8で強制デコード
         const decoder = new TextDecoder("utf-8");
         return decoder.decode(buffer);
     }
@@ -670,36 +666,32 @@
             }
         }
 
-        // --- ベネッセパース（修正版） ---
+        // --- ベネッセパース（列番号インデックス固定方式で確実化） ---
         const bLines = beneText.split(/\r\n|\n/);
         if (bLines.length < 2) throw new Error("benecode.csvの中身が空か、フォーマットが不正です。");
-        
-        // ヘッダーのシングルクォーテーションや全角半角を正規化してカラムマップを作成
-        const bHeaders = bLines[0].split(',').map(h => h.replace(/^'/, '').trim().replace(/^\ufeff/, '').replace(/ｺｰﾄﾞ/g, 'コード'));
-        const bCol = {};
-        bHeaders.forEach((h, idx) => { bCol[h] = idx; });
 
         const bList = [];
         for (let i = 1; i < bLines.length; i++) {
             if (!bLines[i].trim()) continue;
             const row = parseCSVLine(bLines[i]);
-            // カラム数が足りない場合でもエラーで弾かずに安全に処理する
-            if (row.length === 0) continue;
+            if (row.length < 10) continue; // 最低限必要なカラム数チェック
 
             const cleanVal = (s) => s ? String(s).replace(/^'/, '').trim() : '';
-            
-            // カラム名（半角カナ・表記ゆれ対応）
-            const uCode = cleanVal(row[bCol['大学コード'] ?? bCol['大学ｺｰﾄﾞ'] ?? 0]);
-            const fCode = cleanVal(row[bCol['学部コード'] ?? bCol['学部ｺｰﾄﾞ'] ?? 1]);
-            const dCode = cleanVal(row[bCol['学科コード'] ?? bCol['学科ｺｰﾄﾞ'] ?? 2]);
-            const mCode = cleanVal(row[bCol['日程コード'] ?? bCol['日程ｺｰﾄﾞ'] ?? 3]);
-            const wCode = cleanVal(row[bCol['方式コード'] ?? bCol['方式ｺｰﾄﾞ'] ?? 4]);
 
-            const univ = cleanVal(row[bCol['大学名'] ?? 6]);
-            const fac = cleanVal(row[bCol['学部名'] ?? 7]);
-            const dept = cleanVal(row[bCol['学科名'] ?? 8]);
-            const method = cleanVal(row[bCol['日程'] ?? 9]);
-            const way = cleanVal(row[bCol['入試方式'] ?? 10]);
+            // benecode.csv の標準列インデックス:
+            // 0: 大学コード, 1: 学部コード, 2: 学部学科コード等, 3: 日程コード, 4: 方式コード, 5: 小分類CD
+            // 6: 大学名, 7: 学部名, 8: 学学科名, 9: 日程, 10: 入試方式
+            const uCode = cleanVal(row[0]);
+            const fCode = cleanVal(row[1]);
+            const dCode = cleanVal(row[2]);
+            const mCode = cleanVal(row[3]);
+            const wCode = cleanVal(row[4]);
+
+            const univ = cleanVal(row[6]);
+            const fac = cleanVal(row[7]);
+            const dept = cleanVal(row[8]);
+            const method = cleanVal(row[9]);
+            const way = cleanVal(row[10]);
 
             if (uCode) {
                 const raw10 = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
@@ -720,11 +712,10 @@
             }
         }
 
-        // --- マッチング統合処理（改良版） ---
+        // --- マッチング統合処理 ---
         let mergedMap = {};
         let counter = 1;
 
-        // まず河合塾データをベースに登録
         kList.forEach(k => {
             const id = 'mix_' + (counter++);
             mergedMap[id] = {
@@ -742,13 +733,11 @@
             };
         });
 
-        // ベネッセデータを突合・結合
         bList.forEach(b => {
             let matchedId = null;
             for (let id in mergedMap) {
                 let m = mergedMap[id];
                 if (m.normUniv === b.normUniv) {
-                    // 学部名・学科名が部分一致または一致するかチェック
                     const facMatch = (!m.normFac && !b.fac) || (m.normFac && b.fac && (m.normFac === b.fac || m.normFac.includes(b.fac) || b.fac.includes(m.normFac)));
                     const deptMatch = (!m.normDept && !b.dept) || (m.normDept && b.dept && (m.normDept === b.dept || m.normDept.includes(b.dept) || b.dept.includes(m.normDept)));
                     
@@ -1124,7 +1113,7 @@
 
     function closeClipModal() {
         document.getElementById("clip-modal").classList.remove("show");
-        document.body.classList.rem("modal-open");
+        document.body.classList.remove("modal-open");
     }
 
     function copyListAsText() {
