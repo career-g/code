@@ -36,9 +36,7 @@
         /* 固定ヘッダー */
         header {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             height: 44px;
             background: var(--card-bg);
             border-bottom: 1px solid var(--border-color);
@@ -366,7 +364,7 @@
             flex-direction: column;
             align-items: flex-start;
             justify-content: center;
-            min-width: 155px;
+            min-width: 145px;
             padding-right: 6px;
             border-right: 1px solid rgba(0,0,0,0.08);
             font-size: 0.7rem;
@@ -587,10 +585,18 @@
 
     async function loadBothCSVs() {
         try {
-            // 1. 河合塾データの読み込み (code.csv)
+            // 1. 河合塾データの読み込み (code.csv - Shift-JIS or UTF-8)
             const kawaiRes = await fetch('./code.csv');
             if (!kawaiRes.ok) throw new Error("「code.csv」が見つかりません。");
-            const kawaiText = await kawaiRes.text();
+            const kawaiBuffer = await kawaiRes.arrayBuffer();
+            let kawaiText = "";
+            try {
+                const decoder = new TextDecoder("shift_jis");
+                kawaiText = decoder.decode(kawaiBuffer);
+            } catch(e) {
+                const decoder = new TextDecoder("utf-8");
+                kawaiText = decoder.decode(kawaiBuffer);
+            }
             
             // 2. ベネッセデータの読み込み (benecode.csv)
             const beneRes = await fetch('./benecode.csv');
@@ -637,14 +643,15 @@
             const row = parseCSVLine(kLines[i]);
             if (row.length < kHeaders.length) continue;
 
-            const code = row[kCol['大学コード(10桁)']] || row[kCol['大学コード']];
+            // 河合塾の5桁コードを取得（「記入用大学コード(５桁)」または「大学コード」）
+            const kCode5 = row[kCol['記入用大学コード(５桁)']] || row[kCol['大学コード']] || '';
             const univ = row[kCol['大学名']] || '';
             const fac = row[kCol['学部名']] || '';
             const dept = row[kCol['学科名']] || '';
             const method = row[kCol['日程方式名']] || '';
             const type = row[kCol['学校区分']] || '1';
 
-            if (code) {
+            if (kCode5) {
                 kList.push({
                     univ: univ,
                     normUniv: normalizeUnivName(univ),
@@ -652,7 +659,7 @@
                     dept: dept && dept !== '学科なし' ? dept : '',
                     method: method,
                     type: String(type),
-                    code10Kawai: String(code).padStart(10, '0')
+                    codeKawai5: String(kCode5).trim()
                 });
             }
         }
@@ -703,6 +710,7 @@
         let mergedMap = {};
         let counter = 1;
 
+        // まず河合塾データをベースに登録
         kList.forEach(k => {
             const id = 'mix_' + (counter++);
             mergedMap[id] = {
@@ -713,18 +721,19 @@
                 dept: k.dept,
                 method: k.method,
                 type: k.type,
-                kawaiCode: k.code10Kawai,
+                kawaiCode: k.codeKawai5,
                 beneCodeDisplay: '未設定（河合塾のみ）'
             };
         });
 
+        // ベネッセデータを突き合わせ
         bList.forEach(b => {
             let matchedId = null;
             for (let id in mergedMap) {
                 let m = mergedMap[id];
                 if (m.normUniv === b.normUniv && 
-                    (m.fac === b.fac || m.fac.includes(b.fac) || b.fac.includes(m.fac)) &&
-                    (m.dept === b.dept || m.dept.includes(b.dept) || b.dept.includes(m.dept))) {
+                    (m.fac === b.fac || (b.fac && m.fac.includes(b.fac)) || (b.fac && b.fac.includes(m.fac))) &&
+                    (m.dept === b.dept || (b.dept && m.dept.includes(b.dept)) || (b.dept && b.dept.includes(m.dept)))) {
                     matchedId = id;
                     break;
                 }
@@ -890,11 +899,11 @@
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
                                 <div class="code-row">
-                                    <span class="code-label">河合:</span>
+                                    <span class="code-label">河合(5):</span>
                                     <span class="code-val">${item.kawaiCode}</span>
                                 </div>
                                 <div class="code-row">
-                                    <span class="code-label">ベネ:</span>
+                                    <span class="code-label">ベネ(10):</span>
                                     <span class="code-val">${item.beneCodeDisplay}</span>
                                 </div>
                                 <button style="margin-top:2px; width:100%; padding:2px 0;" onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
@@ -1059,11 +1068,11 @@
                 <div class="sub-card ${bgClass}">
                     <div class="sub-card-code-area">
                         <div class="code-row">
-                            <span class="code-label">河合:</span>
+                            <span class="code-label">河合(5):</span>
                             <span class="code-val">${item.kawaiCode}</span>
                         </div>
                         <div class="code-row">
-                            <span class="code-label">ベネ:</span>
+                            <span class="code-label">ベネ(10):</span>
                             <span class="code-val">${item.beneCodeDisplay}</span>
                         </div>
                         <button class="sub-delete" style="width:100%; margin-top:2px;" onclick="confirmRemoveFromList(${idx})">削除</button>
@@ -1103,7 +1112,7 @@
         }
 
         let textData = savedList.map((item, idx) => {
-            return `${idx + 1}. ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | 河合:[${item.kawaiCode}] ベネ:[${item.beneCodeDisplay}]`;
+            return `${idx + 1}. ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | 河合(5):[${item.kawaiCode}] ベネ(10):[${item.beneCodeDisplay}]`;
         }).join("\n");
 
         navigator.clipboard.writeText(textData).then(() => {
