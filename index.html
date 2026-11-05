@@ -112,7 +112,6 @@
         }
         button:hover { background-color: var(--primary-hover); }
         
-        /* 落ち着いた上品な赤（マットな赤） */
         button.danger { 
             background-color: #b91c1c; 
             color: #ffffff; 
@@ -126,7 +125,6 @@
         button.secondary { background-color: #64748b; color: #ffffff; }
         button.secondary:hover { background-color: #475569; }
 
-        /* 個別カード用の控えめな削除ボタン */
         button.sub-delete {
             background-color: #f1f5f9;
             color: #64748b;
@@ -201,12 +199,11 @@
             display: none;
         }
 
-        /* 2列グリッド構造 */
         .search-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 4px 6px;
-            align-items: end; /* 下揃えで綺麗に配置 */
+            align-items: end;
         }
 
         .search-field {
@@ -237,7 +234,6 @@
             box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
         
-        /* 学校区分の右側にのっける注釈スタイル */
         .note-box-right {
             font-size: 0.55rem;
             color: #64748b;
@@ -294,7 +290,6 @@
             gap: 6px;
         }
         
-        /* 学校区分別のカラーバッジ */
         .type-badge {
             font-size: 0.62rem;
             padding: 1px 5px;
@@ -381,7 +376,6 @@
             color: #64748b;
         }
 
-        /* 日程別背景色 */
         .bg-zenki  { background-color: #eff6ff !important; border-color: #bfdbfe !important; }
         .bg-chuki  { background-color: #fefce8 !important; border-color: #fef08a !important; }
         .bg-koki   { background-color: #fef2f2 !important; border-color: #fecaca !important; }
@@ -437,7 +431,6 @@
             font-weight: 600;
         }
 
-        /* モーダル背景 */
         #clip-modal {
             display: none;
             position: fixed;
@@ -507,7 +500,6 @@
         .modal-footer-left { display: flex; gap: 6px; }
         .modal-footer-right { display: flex; gap: 6px; }
 
-        /* トースト・フェイルセーフダイアログ */
         #toast {
             position: fixed;
             top: 50%;
@@ -565,7 +557,6 @@
             border-radius: 6px;
         }
 
-        /* 画面右下に表示する超極小＆薄いタイムスタンプ */
         .last-updated {
             position: fixed;
             bottom: 3px;
@@ -634,7 +625,7 @@
                 </div>
                 <div class="note-box-right">
                     ※第3回全統模試のコードを使用<br>
-                    ※短大・専門は昨年度(2026年度)までのコード。データがない、または変更されている場合があります。
+                    ※短大・専門は昨年度までのコード。データがない場合があります。
                 </div>
             </div>
         </div>
@@ -659,7 +650,7 @@
         </div>
         <div class="modal-footer">
             <div class="modal-footer-left" id="modal-footer-left-area">
-                <!-- 0件時は非表示、あり時は表示 -->
+                <!-- 0件時は非表示 -->
             </div>
             <div class="modal-footer-right">
                 <button class="success" onclick="copyListAsText()">📝 テキストコピー</button>
@@ -669,8 +660,6 @@
 </div>
 
 <div id="toast"></div>
-
-<!-- 画面右下に自動表示される薄い更新日時 -->
 <div class="last-updated" id="file-updated-time"></div>
 
 <script>
@@ -878,9 +867,9 @@
 
         const filtered = allData.filter(item => {
             if (qType && item.schoolType !== qType) return false;
-            if (qUniv && !item.univ.toLowerCase().startsWith(qUniv)) return false;
-            if (qFac && !item.fac.toLowerCase().startsWith(qFac)) return false;
-            if (qDept && !item.dept.toLowerCase().startsWith(qDept)) return false;
+            if (qUniv && !item.univ.toLowerCase().includes(qUniv)) return false;
+            if (qFac && !item.fac.toLowerCase().includes(qFac)) return false;
+            if (qDept && !item.dept.toLowerCase().includes(qDept)) return false;
             if (qMethod && !item.methodName.toLowerCase().includes(qMethod)) return false;
             return true;
         });
@@ -918,6 +907,7 @@
 
         const univNames = Object.keys(univGrouped);
         let html = '';
+        const isSingleUniv = (univNames.length === 1);
 
         univNames.forEach((univName, index) => {
             const univData = univGrouped[univName];
@@ -925,12 +915,7 @@
             const schoolType = univData.schoolType;
             
             const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
-            let isOpen = false;
-            if (qUniv) {
-                if (isExactMatch) isOpen = true;
-            } else {
-                if (index === 0) isOpen = true;
-            }
+            let isOpen = (qUniv && (isExactMatch || isSingleUniv)) || (!qUniv && index === 0) || isSingleUniv;
 
             const facGrouped = {};
             univItems.forEach(item => {
@@ -963,7 +948,7 @@
                     
                     let displayBadge = item.methodName;
                     if (!displayBadge && item.shortName) {
-                        displayBadge = `(${item.shortName})`;
+                        displayBadge = `${item.shortName}`;
                     }
                     const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
@@ -1158,7 +1143,7 @@
             
             let displayBadge = item.methodName;
             if (!displayBadge && item.shortName) {
-                displayBadge = `(${item.shortName})`;
+                displayBadge = `${item.shortName}`;
             }
             const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
 
