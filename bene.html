@@ -874,10 +874,13 @@
         const univNames = Object.keys(univGrouped);
         let html = '';
 
+        // 【変更点】ヒットした大学が1つだけ、または完全一致の場合は自動オープン
+        const isSingleUniv = (univNames.length === 1);
+
         univNames.forEach((univName, index) => {
             const univItems = univGrouped[univName].items;
             const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
-            let isOpen = qUniv ? isExactMatch : (index === 0);
+            let isOpen = (qUniv && (isExactMatch || isSingleUniv)) || (!qUniv && index === 0) || isSingleUniv;
 
             const facGrouped = {};
             univItems.forEach(item => {
@@ -904,7 +907,6 @@
                         mainStr += ` <small style="color:#64748b;">(${item.subName})</small>`;
                     }
                     
-                    // 「日程:前」ではなく「前」「方式:数学」ではなく「数学」のようにシンプルに表示
                     let badges = [];
                     if (item.method) badges.push(item.method);
                     if (item.way) badges.push(item.way);
@@ -951,7 +953,7 @@
             `;
         });
 
-    container.innerHTML = html;
+        container.innerHTML = html;
     }
 
     function toggleUnivGroup(index) {
