@@ -670,10 +670,12 @@
             }
         }
 
-        // --- ベネッセパース ---
+        // --- ベネッセパース（修正版） ---
         const bLines = beneText.split(/\r\n|\n/);
         if (bLines.length < 2) throw new Error("benecode.csvの中身が空か、フォーマットが不正です。");
-        const bHeaders = bLines[0].split(',').map(h => h.replace(/^'/, '').trim().replace(/^\ufeff/, ''));
+        
+        // ヘッダーのシングルクォーテーションや全角半角を正規化してカラムマップを作成
+        const bHeaders = bLines[0].split(',').map(h => h.replace(/^'/, '').trim().replace(/^\ufeff/, '').replace(/ｺｰﾄﾞ/g, 'コード'));
         const bCol = {};
         bHeaders.forEach((h, idx) => { bCol[h] = idx; });
 
@@ -681,20 +683,23 @@
         for (let i = 1; i < bLines.length; i++) {
             if (!bLines[i].trim()) continue;
             const row = parseCSVLine(bLines[i]);
-            if (row.length < bHeaders.length) continue;
+            // カラム数が足りない場合でもエラーで弾かずに安全に処理する
+            if (row.length === 0) continue;
 
             const cleanVal = (s) => s ? String(s).replace(/^'/, '').trim() : '';
-            const uCode = cleanVal(row[bCol['大学ｺｰﾄﾞ'] || bCol['大学コード']]);
-            const fCode = cleanVal(row[bCol['学部ｺｰﾄﾞ'] || bCol['学部コード']]);
-            const dCode = cleanVal(row[bCol['学科ｺｰﾄﾞ'] || bCol['学科コード']]);
-            const mCode = cleanVal(row[bCol['日程ｺｰﾄﾞ'] || bCol['日程コード']]);
-            const wCode = cleanVal(row[bCol['方式ｺｰﾄﾞ'] || bCol['方式コード']]);
+            
+            // カラム名（半角カナ・表記ゆれ対応）
+            const uCode = cleanVal(row[bCol['大学コード'] ?? bCol['大学ｺｰﾄﾞ'] ?? 0]);
+            const fCode = cleanVal(row[bCol['学部コード'] ?? bCol['学部ｺｰﾄﾞ'] ?? 1]);
+            const dCode = cleanVal(row[bCol['学科コード'] ?? bCol['学科ｺｰﾄﾞ'] ?? 2]);
+            const mCode = cleanVal(row[bCol['日程コード'] ?? bCol['日程ｺｰﾄﾞ'] ?? 3]);
+            const wCode = cleanVal(row[bCol['方式コード'] ?? bCol['方式ｺｰﾄﾞ'] ?? 4]);
 
-            const univ = cleanVal(row[bCol['大学名']]);
-            const fac = cleanVal(row[bCol['学部名']]);
-            const dept = cleanVal(row[bCol['学科名']]);
-            const method = cleanVal(row[bCol['日程']]);
-            const way = cleanVal(row[bCol['入試方式']]);
+            const univ = cleanVal(row[bCol['大学名'] ?? 6]);
+            const fac = cleanVal(row[bCol['学部名'] ?? 7]);
+            const dept = cleanVal(row[bCol['学科名'] ?? 8]);
+            const method = cleanVal(row[bCol['日程'] ?? 9]);
+            const way = cleanVal(row[bCol['入試方式'] ?? 10]);
 
             if (uCode) {
                 const raw10 = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
