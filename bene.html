@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ベネッセ 大学・学部・学科コード検索（10桁対応）</title>
+    <title>ベネッセ 大学・学部・学科コード検索（10桁）</title>
     <style>
         :root {
             --primary-color: #0056b3;
@@ -732,7 +732,6 @@
 
             if (uCode) {
                 const id = 'item_' + i;
-                // 正確な10桁コード組み立て（大学4桁 + 学部2桁 + 学科2桁 + 日程1桁 + 方式1桁 など）
                 const full10DigitCode = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
 
                 const itemObj = {
@@ -905,9 +904,10 @@
                         mainStr += ` <small style="color:#64748b;">(${item.subName})</small>`;
                     }
                     
+                    // 「日程:前」ではなく「前」「方式:数学」ではなく「数学」のようにシンプルに表示
                     let badges = [];
-                    if (item.method) badges.push(`日程:${item.method}`);
-                    if (item.way) badges.push(`方式:${item.way}`);
+                    if (item.method) badges.push(item.method);
+                    if (item.way) badges.push(item.way);
                     
                     const badgeHtml = badges.length > 0 ? `<div class="sub-card-meta"><span class="sub-card-badge">${badges.join(' | ')}</span></div>` : '';
 
@@ -951,7 +951,7 @@
             `;
         });
 
-        container.innerHTML = html;
+    container.innerHTML = html;
     }
 
     function toggleUnivGroup(index) {
@@ -1096,8 +1096,8 @@
             }
             
             let badges = [];
-            if (item.method) badges.push(`日程:${item.method}`);
-            if (item.way) badges.push(`方式:${item.way}`);
+            if (item.method) badges.push(item.method);
+            if (item.way) badges.push(item.way);
             const badgeHtml = badges.length > 0 ? `<div class="sub-card-meta"><span class="sub-card-badge">${badges.join(' | ')}</span></div>` : '';
 
             const isFirst = idx === 0;
@@ -1145,7 +1145,12 @@
         }
 
         let textData = savedList.map((item, idx) => {
-            return `${idx + 1}. 【${item.code}】 ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | ${item.method || ''} ${item.way || ''}`;
+            let badges = [];
+            if (item.method) badges.push(item.method);
+            if (item.way) badges.push(item.way);
+            let badgeStr = badges.length > 0 ? ` | ${badges.join(' ')}` : '';
+
+            return `${idx + 1}. 【${item.code}】 ${item.univ} | ${item.fac || ''} | ${item.dept || ''}${badgeStr}`;
         }).join("\n");
 
         navigator.clipboard.writeText(textData).then(() => {
