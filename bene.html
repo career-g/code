@@ -805,17 +805,17 @@
         return result;
     }
 
-    // 河合塾版と完全同一：国公立（1または2）の 前期/中期/後期 だけ青・黄・赤、それ以外はすべて紫色
     function getBgClass(item) {
         const type = String(item.schoolType);
-        if (type !== '1' && type !== '2') return "bg-dokuji"; 
+        // 国立(1)・公立(2)以外は背景色をつけない（河合塾版と同一）
+        if (type !== '1' && type !== '2') return ""; 
 
         const text = item.method.toLowerCase();
         if (text.includes('前')) return "bg-zenki";
         if (text.includes('中')) return "bg-chuki";
         if (text.includes('後')) return "bg-koki";
         
-        return "bg-dokuji";
+        return "";
     }
 
     function getTypeBadgeHtml(schoolType) {
