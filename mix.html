@@ -807,21 +807,23 @@
         const segScore = (a, b) => {   // a, b は lastSeg 済み
             if (!a || !b || a.length < 2 || b.length < 2) return 0;
             if (a === b) return 2.6;
-            if (a.includes(b) || b.includes(a)) return 1.9;
+            const [sh, lg] = a.length <= b.length ? [a, b] : [b, a];
+            if (lg.includes(sh)) return 1.0 + 1.5 * (sh.length / lg.length);   // 含む（長さが近いほど高得点）
             return 0;
         };
         const nameScore = (a, b) => {   // a, b は nameKey 済みの文字列
             if (!a && !b) return 3;
             if (!a || !b) return 0;
             if (a === b) return 3;
-            if (a.includes(b) || b.includes(a)) return 2;
             const [sh, lg] = a.length <= b.length ? [a, b] : [b, a];
+            if (lg.includes(sh)) return 1.5 + 1.4 * (sh.length / lg.length);   // 含む（長さが近いほど高得点。上限は一致の3未満）
             if (sh.length >= 3 && sh.charAt(0) === lg.charAt(0) && isSubsequence(sh, lg)) return 1;
             return 0;
         };
 
         // 方式名の正規化: 全角→半角、余計な語を除去
-        const methodNorm = (t) => nz(t).replace(/[\s　]+/g, '').replace(/教科|科目|方式|入試|日程|型|全学統一|選抜/g, '');
+        const methodNorm = (t) => nz(t).replace(/[\s　]+/g, '').replace(/教科|科目|方式|入試|日程|型|全学統一|選抜/g, '')
+            .replace(/^(前|後|中)(?=[a-z0-9])/, '$1期');   // ベネの略称「前Ａ」を「前期Ａ」と読み替え
         const bigrams = (t) => {
             if (t.length === 0) return [];
             if (t.length === 1) return [t];
@@ -899,16 +901,29 @@
                     if (fs + ds + bonus > best) { best = fs + ds + bonus; pick = k; }   // 一番近い学部・学科を採用
                 });
             }
-            if (pick) kGroups.get(pick.gid).b.push(b); else beneOnly.push(toBeneOnly(b));
+            if (pick) kGroups.get(pick.gid).b.push(b);
+            else {
+                // 学科までは合わなくても、学部名が河合と対応づくなら学部名だけ河合に合わせる
+                let facRef = null, fbest = 0;
+                if (kKey !== undefined) (kByUniv.get(kKey) || []).forEach(k => {
+                    if (b.campus && !k.fk.includes(b.campus)) return;
+                    const f = nameScore(k.fk !== undefined ? k.fk : nameKey(k.fac), b.fk);
+                    if (f > fbest) { fbest = f; facRef = { fac: k.rawFac }; }
+                });
+                beneOnly.push(toBeneOnly(b, facRef));
+            }
         });
 
-        function toBeneOnly(b) {
+        function toBeneOnly(b, ref) {
             // 大学が河合と対応づいているなら、河合の大学名で表示（略称との二重表示を防ぐ）
             const kk = univMap.get(b.univ);
             const ki = kk !== undefined ? kUnivs.get(kk) : null;
+            // 学部・学科も河合と対応づいているなら、河合の名前で表示（「生命医科」→「生命医科学」「リハビリ」→「リハビリテーション」）
+            const facName  = ref && ref.fac  ? ref.fac  : b.rawFac;
+            const deptName = ref && ref.dept ? ref.dept : b.rawDept;
             return {
                 id: b.id, univ: ki ? ki.name : b.univ, univAlt: ki ? b.univ : '',
-                fac: b.rawFac, dept: b.rawDept,
+                fac: facName, dept: deptName,
                 method: b.method, type: ki ? ki.type : b.type, sched: b.sched, kawaiCode: '',
                 beneCodes: [{ code: b.codeBene, label: '' }]
             };
@@ -941,6 +956,17 @@
                 attach(p.k, p.b); unassigned.delete(p.b); used.add(p.k);
             });
 
+            // (1b) 方式名が（略称を直せば）ほぼ一致する残りは、同じ河合の行へまとめる（例: 前ＡⅠ・前ＡⅡ → 前期Ａ方式）
+            [...unassigned].forEach(b => {
+                let top = null, topSc = 0, tie = false;
+                g.rows.forEach(k => {
+                    if (schedClash(k.sched, b.sched) || textClash(k, b)) return;
+                    const sc = methodScore(k.mKey, b.mKey);
+                    if (sc > topSc) { top = k; topSc = sc; tie = false; } else if (sc === topSc && sc > 0) tie = true;
+                });
+                if (top && topSc >= 0.66 && !tie) { attach(top, b); unassigned.delete(b); used.add(top); }
+            });
+
             // (2) 前期/後期/中期 が同じなら、方式の細かい違い（前 数学/前 数理 など）は同じ河合の行へまとめる
             [...unassigned].forEach(b => {
                 if (!['前','後','中'].includes(b.sched)) return;
@@ -961,11 +987,12 @@
             });
 
             // 残りは「ベネのみ」の別行（無理に結び付けない）
-            unassigned.forEach(b => beneOnly.push(toBeneOnly(b)));
+            unassigned.forEach(b => beneOnly.push(toBeneOnly(b, { fac: g.rows[0].rawFac, dept: g.rows[0].rawDept })));
         });
 
         unifiedData = [...merged.values(), ...beneOnly];
         unifiedData.forEach(it => {
+            it.beneCodes.sort((a, b) => a.code.localeCompare(b.code));   // 複数あるときはコード順
             it.sUniv = nz(it.univ + ' ' + it.univAlt);
             it.sFac = nz(it.fac); it.sDept = nz(it.dept); it.sMethod = nz(it.method);
         });
