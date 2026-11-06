@@ -52,12 +52,16 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            min-width: 0;          /* 狭い画面でタイトルを縮められるように */
+            flex: 1 1 auto;
         }
         h1 {
-            font-size: 0.82rem;
+            font-size: 0.9rem;
             margin: 0;
             color: var(--primary-color);
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;   /* 入り切らなければ「…」で省略 */
             line-height: 1.1;
         }
         .header-sub {
@@ -81,6 +85,9 @@
             font-size: 0.72rem;
             transition: all 0.2s;
             user-select: none;
+            flex-shrink: 0;            /* ボタンは縮めない・折り返さない */
+            white-space: nowrap;
+            margin-left: 8px;
         }
         .cart-button:hover {
             background: #ede9fe;
@@ -386,6 +393,19 @@
             font-weight: bold;
             color: var(--primary-color);
         }
+        .code-val.code-none {
+            font-weight: normal;
+            color: #cbd5e1;
+            letter-spacing: 1px;
+        }
+        /* 保存・削除ボタン: 横いっぱいではなく、ボタンらしい大きさで右寄せ */
+        button.card-btn {
+            display: block;
+            width: auto;
+            margin: 3px 0 0 auto;
+            padding: 2px 14px;
+            font-size: 0.7rem;
+        }
 
         .sub-card-content { flex-grow: 1; }
         
@@ -483,8 +503,7 @@
 
 <header>
     <div class="header-title-group">
-        <h1>河合塾 ＆ ベネッセ 統合コード検索</h1>
-        <div class="header-sub" id="header-year-sub">ハイブリッドミックス版</div>
+        <h1>河合塾＆ベネッセ コード検索</h1>
     </div>
     <div class="cart-button" onclick="openClipModal()">
         <span>📑 転記用リスト</span>
@@ -712,6 +731,7 @@
             const row = parseCSVLine(bLines[i]);
             if (row.length < 11) continue;
 
+            if (cleanVal(row[12]) === '0') continue;   // 募集単位 0＝学部代表（実際には使わないコード）は除外
             const uCode = cleanVal(row[0]), fCode = cleanVal(row[1]), dCode = cleanVal(row[2]);
             const mCode = cleanVal(row[3]), wCode = cleanVal(row[4]);
             const univ = cleanVal(row[6]);
@@ -915,15 +935,17 @@
         dataMap = {};
         unifiedData.forEach(item => { dataMap[item.id] = item; });
 
-        const matchedK = [...merged.values()].filter(m => m.beneCodes.length).length;
         document.getElementById("status-msg").style.display = "none";
-        document.getElementById("header-year-sub").innerText =
-            `河合塾(${kList.length}件) ＆ ベネッセ(${bList.length}件) / 両方に存在 ${matchedK}件`;
         filterData();
     }
 
     // コード表示用ヘルパー（旧バージョンで保存した項目にも対応）
-    function kawaiCodeText(item) { return item.kawaiCode || '未設定（ベネッセのみ）'; }
+    const NO_CODE = '-----';
+    function kawaiCodeText(item) {
+        const c = item.kawaiCode || '';
+        return c && !c.startsWith('未設定') ? c : NO_CODE;   // 旧バージョンで保存した「未設定…」にも対応
+    }
+    const codeValClass = (text) => text === NO_CODE ? 'code-val code-none' : 'code-val';
     function beneCodesOf(item) {
         if (Array.isArray(item.beneCodes)) return item.beneCodes;
         if (item.beneCodeDisplay && !item.beneCodeDisplay.startsWith('未設定')) return [{ code: item.beneCodeDisplay, label: '' }];
@@ -931,7 +953,7 @@
     }
     function beneCodesHtml(item) {
         const list = beneCodesOf(item);
-        if (list.length === 0) return `<div class="code-row"><span class="code-label">ベネ(10):</span><span class="code-val">未設定（河合塾のみ）</span></div>`;
+        if (list.length === 0) return `<div class="code-row"><span class="code-label">ベネ(10):</span><span class="code-val code-none">${NO_CODE}</span></div>`;
         const ks = schedKey(item.method);
         const isPublic = item.type === '1' || item.type === '2';   // 国公立
         // ラベルは「コードを見分けるのに必要なときだけ」表示
@@ -1090,10 +1112,10 @@
                             <div class="sub-card-code-area">
                                 <div class="code-row">
                                     <span class="code-label">河合(5):</span>
-                                    <span class="code-val">${esc(kawaiCodeText(item))}</span>
+                                    <span class="${codeValClass(kawaiCodeText(item))}">${esc(kawaiCodeText(item))}</span>
                                 </div>
                                 ${beneCodesHtml(item)}
-                                <button style="margin-top:2px; width:100%; padding:2px 0;" onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
+                                <button class="card-btn" onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
                             </div>
                             <div class="sub-card-content">
                                 <div class="sub-card-main">${mainStr}</div>
@@ -1256,10 +1278,10 @@
                     <div class="sub-card-code-area">
                         <div class="code-row">
                             <span class="code-label">河合(5):</span>
-                            <span class="code-val">${esc(kawaiCodeText(item))}</span>
+                            <span class="${codeValClass(kawaiCodeText(item))}">${esc(kawaiCodeText(item))}</span>
                         </div>
                         ${beneCodesHtml(item)}
-                        <button class="sub-delete" style="width:100%; margin-top:2px;" onclick="confirmRemoveFromList(${idx})">削除</button>
+                        <button class="sub-delete card-btn" onclick="confirmRemoveFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
                         <div class="sub-card-main">${mainStr}</div>
@@ -1296,7 +1318,7 @@
         }
 
         let textData = savedList.map((item, idx) => {
-            return `${idx + 1}. ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | 河合(5):[${item.kawaiCode || '-'}] ベネ(10):[${beneCodesOf(item).map(c => c.code).join(' / ') || '-'}]`;
+            return `${idx + 1}. ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | 河合(5):[${kawaiCodeText(item) === NO_CODE ? '-' : kawaiCodeText(item)}] ベネ(10):[${beneCodesOf(item).map(c => c.code).join(' / ') || '-'}]`;
         }).join("\n");
 
         navigator.clipboard.writeText(textData).then(() => {
