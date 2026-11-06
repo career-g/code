@@ -867,12 +867,15 @@
             b.mKey = methodNorm(b.method.replace(/^[^ ]*\s?/, '')) || (SCHED_FULL[b.sched] || '');   // 「前 数学」→方式部分、なければ日程
             const kKey = univMap.get(b.univ);
             b.fk = nameKey(b.fac); b.dk = nameKey(b.dept); b.dl = lastSeg(b.rawDept);
+            // 手動対応表に載っているキャンパス別の大学（北教大札幌校 など）は、河合の学部名（教育札幌校）に同じキャンパス名があるものだけが対象
+            b.campus = UNIV_ALIASES[b.univ] ? ((nameKey(b.univ).match(/(.{2}校)$/) || [])[1] || '') : '';
             b.wk = nameKey(b.method.replace(/^[^ ]*\s?/, ''));   // ベネの方式名（日程を除いた部分）
             let pick = null, best = 0;
             if (kKey !== undefined) {
                 (kByUniv.get(kKey) || []).forEach(k => {
                     if (schedClash(k.sched, b.sched)) return;                                    // 日程（前/後/共…）が合わない行は対象外
                     if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); k.dl = lastSeg(k.rawDept); }   // 河合側は初回のみ計算
+                    if (b.campus && !k.fk.includes(b.campus)) return;                           // 別キャンパスの行には結び付けない
                     const fs = nameScore(k.fk, b.fk);
                     if (fs === 0) return;
                     const ds = Math.max(nameScore(k.dk, b.dk), segScore(k.dl, b.dl));
@@ -983,10 +986,8 @@
         const list = beneCodesOf(item);
         if (list.length === 0) return `<div class="code-row"><span class="code-left"><span class="code-tag tag-bene">ベネ</span></span><span class="code-val val-bene code-none">${NO_CODE}</span></div>`;
         const ks = schedKey(item.method);
-        const isPublic = item.type === '1' || item.type === '2';   // 国公立
         // ラベルは「コードを見分けるのに必要なときだけ」表示
         //  ・先頭の 前/後/中 は、河合の行の日程と同じなら省略（画面に「前期」と出ているため）
-        //  ・国公立は、同じ行にコードが複数あるときだけ表示
         const cleanLabel = (l) => {
             l = String(l || '').trim();
             const m = l.match(/^(前|後|中)(\s+|$)/);
@@ -994,8 +995,8 @@
             return l.trim();
         };
         return list.map(c => {
-            let label = cleanLabel(c.label);
-            if (isPublic && list.length < 2) label = '';
+            // コードが1つなら、ラベルは出さない（河合の行と1対1で対応しているため、見分ける必要がない）
+            const label = list.length >= 2 ? cleanLabel(c.label) : '';
             return `
             <div class="code-row">
                 <span class="code-left"><span class="code-tag tag-bene">ベネ</span>${label ? `<span class="code-sub">${esc(label)}</span>` : ''}</span>
