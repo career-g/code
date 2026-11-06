@@ -831,6 +831,16 @@
         // 日程が合うか（前・後・中・共・一般を厳密に区別。国公立の「独自」は 河合N ⇔ ベネ独 or 空 を許可）
         const schedCompat = (a, b) => a === b || (a === '独' && b === '') || (a === '' && b === '独');
         const schedClash = (a, b) => !schedCompat(a, b);
+        // 私大などで、河合が「前期」なのにベネが「後」（またはその逆）の食い違いは別物として扱う
+        //   ただしベネ側にＢ日程（前期Ｂなど）とあるときは「2回目の日程の呼び名の違い」の可能性があるので結び付ける
+        const onlyZen = (t) => t.includes('前') && !t.includes('後');
+        const onlyGo  = (t) => t.includes('後') && !t.includes('前');
+        function textClash(k, b) {
+            if (k.type === '1' || k.type === '2') return false;          // 国公立は日程コードで厳密に対応づけ済み
+            const bl = b.method.replace(/^共\s*/, '');
+            if (/[ＢB]/.test(bl)) return false;                           // Ｂ日程は許可
+            return (onlyZen(k.method) && onlyGo(bl)) || (onlyGo(k.method) && onlyZen(bl));
+        }
         // 方式名の類似度: 完全一致=2、共通する2文字連続の割合(0.5以上)=その値、それ以外=0
         function methodScore(kKey, bKey) {
             if (!kKey || !bKey) return 0;
@@ -916,7 +926,7 @@
             // (1) 方式名が似ているもの同士を、点数の高い順に1対1で対応づけ
             const pairs = [];
             g.rows.forEach(k => g.b.forEach(b => {
-                if (schedClash(k.sched, b.sched)) return;
+                if (schedClash(k.sched, b.sched) || textClash(k, b)) return;
                 let sc = methodScore(k.mKey, b.mKey);
                 // 略称（3文字程度に切り詰められた方式名）: 「統一３」⊂「全学統一３科目」のように部分列なら低めの点で候補にする
                 if (sc === 0) {
@@ -942,7 +952,7 @@
             ['', '共', '独', '前', '後', '中'].forEach(sc => {
                 const bs = [...unassigned].filter(b => b.sched === sc);
                 const ks = g.rows.filter(r => !used.has(r) && r.sched === sc);
-                if (bs.length === 1 && ks.length === 1) { attach(ks[0], bs[0]); unassigned.delete(bs[0]); used.add(ks[0]); return; }
+                if (bs.length === 1 && ks.length === 1 && !textClash(ks[0], bs[0])) { attach(ks[0], bs[0]); unassigned.delete(bs[0]); used.add(ks[0]); return; }
                 // 河合に「方式名なし」の行が1つだけあり、ベネも方式名なしなら、その行へ（「二次」など別方式の行は対象外）
                 if (bs.length === 1 && bs[0].mKey === '') {
                     const blank = ks.filter(r => r.mKey === '');
