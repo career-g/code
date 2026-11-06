@@ -811,6 +811,18 @@
             if (lg.includes(sh)) return 1.0 + 1.5 * (sh.length / lg.length);   // 含む（長さが近いほど高得点）
             return 0;
         };
+        // ベネは「義務－」を「義」、「高等－」を「高」と1文字に略し、さらに6文字で切っている（学校／義音楽・学校／高国語 など）
+        //   → 河合側も同じ略記にそろえ、「ベネの学科名の末尾が河合の学科名の先頭部分と一致するか」で見る
+        const abbrSeg = (rawDept) => lastSeg(nz(rawDept).replace(/義務-/g, '義').replace(/高等-/g, '高'));
+        const MARK = /^[義高]/;
+        const abbrScore = (kAbbr, bSeg) => {   // kAbbr: 河合を略記化した末尾 / bSeg: ベネ学科名の末尾（どちらも lastSeg 済み）
+            if (!kAbbr || !bSeg || bSeg.length < 2) return 0;
+            const km = (kAbbr.match(MARK) || [''])[0], bm = (bSeg.match(MARK) || [''])[0];
+            if (km && bm && km !== bm) return -1;              // 義務 と 高等 の取り違えは別物（高国語 ≠ 義務－国語）
+            if (kAbbr === bSeg) return 4.0;
+            if (kAbbr.startsWith(bSeg)) return 3.0 + 0.8 * (bSeg.length / kAbbr.length);   // 切り詰め（先頭一致）。従来の部分一致より優先
+            return 0;
+        };
         const nameScore = (a, b) => {   // a, b は nameKey 済みの文字列
             if (!a && !b) return 3;
             if (!a || !b) return 0;
@@ -890,7 +902,10 @@
                     if (b.campus && !k.fk.includes(b.campus)) return;                           // 別キャンパスの行には結び付けない
                     const fs = nameScore(k.fk, b.fk);
                     if (fs === 0) return;
-                    const ds = Math.max(nameScore(k.dk, b.dk), segScore(k.dl, b.dl));
+                    if (k.da === undefined) k.da = abbrSeg(k.rawDept);
+                    const as = abbrScore(k.da, lastSeg(b.rawDept));
+                    if (as < 0) return;                                                          // 義務/高等が食い違う行は対象外
+                    const ds = as > 0 ? as : Math.max(nameScore(k.dk, b.dk), segScore(k.dl, b.dl));
                     if (ds === 0) return;
                     // 同点のときの決め手: ベネの方式名（地域枠など）が河合の学科名・方式名に入っているか
                     //   例）ベネ「医 / 地域枠」→ 河合「医（地域枠）」。方式名が空なら「一般」を含む方を優先
