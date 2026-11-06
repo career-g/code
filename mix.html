@@ -384,15 +384,25 @@
             justify-content: space-between;
             width: 100%;
         }
-        .code-label {
-            font-size: 0.55rem;
-            color: #64748b;
+        .code-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
+        .code-tag {                       /* 河合=青 / ベネ=オレンジ の名札 */
+            font-size: 0.58rem;
+            color: #ffffff;
             font-weight: bold;
+            padding: 0 5px;
+            border-radius: 3px;
+            line-height: 1.5;
+            white-space: nowrap;
         }
+        .tag-kawai { background: #2563eb; }
+        .tag-bene  { background: #ea580c; }
+        .code-sub { font-size: 0.55rem; color: #64748b; font-weight: bold; white-space: nowrap; }
         .code-val {
             font-weight: bold;
             color: var(--primary-color);
         }
+        .code-val.val-kawai { color: #1d4ed8; }
+        .code-val.val-bene  { color: #c2410c; }
         .code-val.code-none {
             font-weight: normal;
             color: #cbd5e1;
@@ -791,6 +801,15 @@
         // 同じ「大学・学部・学科」の中で、方式名の似かたを見て 河合の行 ⇔ ベネの行 を対応づける
         // 学部名・学科名の近さ: 3=一致 / 2=含む / 1=略称（切り詰め）/ 0=別物。記号（／－・など）は無視
         const nameKey = (t) => nz(t).replace(/[\s／/－\-ー・･()（）]+/g, '');
+        // 学科名の「最後の区切り以降」だけを取り出す（ベネ「音楽／ジャズ」→「ジャズ」、河合「学校－保健体育」→「保健体育」）
+        const lastSeg = (t) => { const p = nz(t).split(/[\/\-]/); return nameKey(p[p.length - 1]); };
+        // ベネの学科名は河合の学科名の先頭部分に切り詰められていることが多い（「ジャズ」⊂「ジャズ・ポピュラー」）
+        const segScore = (a, b) => {   // a, b は lastSeg 済み
+            if (!a || !b || a.length < 2 || b.length < 2) return 0;
+            if (a === b) return 2.6;
+            if (a.includes(b) || b.includes(a)) return 1.9;
+            return 0;
+        };
         const nameScore = (a, b) => {   // a, b は nameKey 済みの文字列
             if (!a && !b) return 3;
             if (!a || !b) return 0;
@@ -826,7 +845,7 @@
         kList.forEach(k => {
             merged.set(k.id, {
                 id: k.id, univ: k.univ, univAlt: '', fac: k.rawFac, dept: k.rawDept,
-                method: k.method, type: k.type, kawaiCode: k.codeKawai5, beneCodes: []
+                method: k.method, type: k.type, sched: k.sched, kawaiCode: k.codeKawai5, beneCodes: []
             });
             k.mKey = methodNorm(k.method);
         });
@@ -847,16 +866,16 @@
         bList.forEach(b => {
             b.mKey = methodNorm(b.method.replace(/^[^ ]*\s?/, '')) || (SCHED_FULL[b.sched] || '');   // 「前 数学」→方式部分、なければ日程
             const kKey = univMap.get(b.univ);
-            b.fk = nameKey(b.fac); b.dk = nameKey(b.dept);
+            b.fk = nameKey(b.fac); b.dk = nameKey(b.dept); b.dl = lastSeg(b.rawDept);
             b.wk = nameKey(b.method.replace(/^[^ ]*\s?/, ''));   // ベネの方式名（日程を除いた部分）
             let pick = null, best = 0;
             if (kKey !== undefined) {
                 (kByUniv.get(kKey) || []).forEach(k => {
                     if (schedClash(k.sched, b.sched)) return;                                    // 日程（前/後/共…）が合わない行は対象外
-                    if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); }   // 河合側は初回のみ計算
+                    if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); k.dl = lastSeg(k.rawDept); }   // 河合側は初回のみ計算
                     const fs = nameScore(k.fk, b.fk);
                     if (fs === 0) return;
-                    const ds = nameScore(k.dk, b.dk);
+                    const ds = Math.max(nameScore(k.dk, b.dk), segScore(k.dl, b.dl));
                     if (ds === 0) return;
                     // 同点のときの決め手: ベネの方式名（地域枠など）が河合の学科名・方式名に入っているか
                     //   例）ベネ「医 / 地域枠」→ 河合「医（地域枠）」。方式名が空なら「一般」を含む方を優先
@@ -877,7 +896,7 @@
             return {
                 id: b.id, univ: ki ? ki.name : b.univ, univAlt: ki ? b.univ : '',
                 fac: b.rawFac, dept: b.rawDept,
-                method: b.method, type: ki ? ki.type : b.type, kawaiCode: '',
+                method: b.method, type: ki ? ki.type : b.type, sched: b.sched, kawaiCode: '',
                 beneCodes: [{ code: b.codeBene, label: '' }]
             };
         }
@@ -920,7 +939,12 @@
             ['', '共', '独', '前', '後', '中'].forEach(sc => {
                 const bs = [...unassigned].filter(b => b.sched === sc);
                 const ks = g.rows.filter(r => !used.has(r) && r.sched === sc);
-                if (bs.length === 1 && ks.length === 1) { attach(ks[0], bs[0]); unassigned.delete(bs[0]); used.add(ks[0]); }
+                if (bs.length === 1 && ks.length === 1) { attach(ks[0], bs[0]); unassigned.delete(bs[0]); used.add(ks[0]); return; }
+                // 河合に「方式名なし」の行が1つだけあり、ベネも方式名なしなら、その行へ（「二次」など別方式の行は対象外）
+                if (bs.length === 1 && bs[0].mKey === '') {
+                    const blank = ks.filter(r => r.mKey === '');
+                    if (blank.length === 1) { attach(blank[0], bs[0]); unassigned.delete(bs[0]); used.add(blank[0]); }
+                }
             });
 
             // 残りは「ベネのみ」の別行（無理に結び付けない）
@@ -945,7 +969,11 @@
         const c = item.kawaiCode || '';
         return c && !c.startsWith('未設定') ? c : NO_CODE;   // 旧バージョンで保存した「未設定…」にも対応
     }
-    const codeValClass = (text) => text === NO_CODE ? 'code-val code-none' : 'code-val';
+    const codeValClass = (text, kind) => 'code-val val-' + kind + (text === NO_CODE ? ' code-none' : '');
+    function kawaiRowHtml(item) {
+        const t = kawaiCodeText(item);
+        return `<div class="code-row"><span class="code-left"><span class="code-tag tag-kawai">河合</span></span><span class="${codeValClass(t, 'kawai')}">${esc(t)}</span></div>`;
+    }
     function beneCodesOf(item) {
         if (Array.isArray(item.beneCodes)) return item.beneCodes;
         if (item.beneCodeDisplay && !item.beneCodeDisplay.startsWith('未設定')) return [{ code: item.beneCodeDisplay, label: '' }];
@@ -953,7 +981,7 @@
     }
     function beneCodesHtml(item) {
         const list = beneCodesOf(item);
-        if (list.length === 0) return `<div class="code-row"><span class="code-label">ベネ(10):</span><span class="code-val code-none">${NO_CODE}</span></div>`;
+        if (list.length === 0) return `<div class="code-row"><span class="code-left"><span class="code-tag tag-bene">ベネ</span></span><span class="code-val val-bene code-none">${NO_CODE}</span></div>`;
         const ks = schedKey(item.method);
         const isPublic = item.type === '1' || item.type === '2';   // 国公立
         // ラベルは「コードを見分けるのに必要なときだけ」表示
@@ -970,18 +998,20 @@
             if (isPublic && list.length < 2) label = '';
             return `
             <div class="code-row">
-                <span class="code-label">ベネ(10)${label ? ' ' + esc(label) : ''}:</span>
-                <span class="code-val">${esc(c.code)}</span>
+                <span class="code-left"><span class="code-tag tag-bene">ベネ</span>${label ? `<span class="code-sub">${esc(label)}</span>` : ''}</span>
+                <span class="code-val val-bene">${esc(c.code)}</span>
             </div>`;
         }).join('');
     }
 
+    // 背景色は国公立の日程（前期・中期・後期・独自日程）だけ。私大・短大などは色なし
     function getBgClass(item) {
-        const text = item.method.toLowerCase();
-        if (text.includes('前')) return "bg-zenki";
-        if (text.includes('中')) return "bg-chuki";
-        if (text.includes('後')) return "bg-koki";
-        if (text.includes('共') || text.includes('独自')) return "bg-dokuji";
+        if (item.type !== '1' && item.type !== '2') return "";
+        const sc = item.sched !== undefined ? item.sched : schedKey(item.method);   // 旧バージョンの保存データは文字から推測
+        if (sc === '前') return "bg-zenki";
+        if (sc === '中') return "bg-chuki";
+        if (sc === '後') return "bg-koki";
+        if (sc === '独') return "bg-dokuji";
         return "";
     }
 
@@ -1110,10 +1140,7 @@
                     cardsHtml += `
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
-                                <div class="code-row">
-                                    <span class="code-label">河合(5):</span>
-                                    <span class="${codeValClass(kawaiCodeText(item))}">${esc(kawaiCodeText(item))}</span>
-                                </div>
+                                ${kawaiRowHtml(item)}
                                 ${beneCodesHtml(item)}
                                 <button class="card-btn" onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
                             </div>
@@ -1276,10 +1303,7 @@
             cardsHtml += `
                 <div class="sub-card ${bgClass}">
                     <div class="sub-card-code-area">
-                        <div class="code-row">
-                            <span class="code-label">河合(5):</span>
-                            <span class="${codeValClass(kawaiCodeText(item))}">${esc(kawaiCodeText(item))}</span>
-                        </div>
+                        ${kawaiRowHtml(item)}
                         ${beneCodesHtml(item)}
                         <button class="sub-delete card-btn" onclick="confirmRemoveFromList(${idx})">削除</button>
                     </div>
