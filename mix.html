@@ -591,6 +591,10 @@
         // 他にも結び付かない大学があればここに追加: "ベネ側の名前": "河合側の名前",
     };
 
+    // 河合「大学グループ区分」→ 日程（ベネの「日程」と同じ記号にそろえる）
+    //   D=前期 E=後期 C=中期 N=別日程(独自) 1=共通テスト利用(私大) 空白=一般(私大)
+    const GRP_TO_SCHED = { 'D': '前', 'E': '後', 'C': '中', 'N': '独', '1': '共' };
+
     // 検索用: 全角英数→半角, 小文字化
     const nz = (s) => String(s || '').normalize('NFKC').toLowerCase();
     const stripSpace = (s) => String(s || '').replace(/['\u3000\s]+/g, '');
@@ -684,6 +688,7 @@
             const dept = row[kCol['学科名']] || '';
             const method = row[kCol['日程方式名']] || '';
             const type = String(row[kCol['学校区分']] || '').trim();
+            const grp = String(row[kCol['大学グループ区分']] || '').trim();
 
             kList.push({
                 id: 'k' + String(kCode5).trim(),          // 河合5桁コードは一意 → 安定したID
@@ -691,7 +696,7 @@
                 rawFac: fac, rawDept: dept,
                 fac: fac && fac !== '学部なし' ? stripSpace(fac) : '',
                 dept: dept && dept !== '学科なし' ? stripSpace(dept) : '',
-                method, sched: schedKey(method), type,
+                method, sched: GRP_TO_SCHED[grp] || '', grp, type,
                 codeKawai5: String(kCode5).trim()
             });
         }
@@ -721,7 +726,7 @@
                 rawFac: fac, rawDept: dept,
                 fac: stripSpace(fac), dept: stripSpace(dept),
                 method: sched + (way ? ' ' + way : ''),
-                sched: schedKey(sched),
+                sched: ['前', '後', '中', '独', '共'].includes(sched.charAt(0)) ? sched.charAt(0) : '',
                 type: BENE_TYPE_TO_KAWAI[uCode.charAt(0)] || '8',   // ← 河合の区分に変換
                 codeBene: `${raw10.substring(0, 4)}-${raw10.substring(4, 6)}-${raw10.substring(6)}`
             });
@@ -784,8 +789,9 @@
             const r = []; for (let i = 0; i < t.length - 1; i++) r.push(t.substr(i, 2)); return r;
         };
         const SCHED_FULL = { '前': '前期', '後': '後期', '中': '中期' };
-        // 前/後/中 が両方にあって食い違うなら別物
-        const schedClash = (a, b) => a && b && ['前','後','中'].includes(a) && ['前','後','中'].includes(b) && a !== b;
+        // 日程が合うか（前・後・中・共・一般を厳密に区別。国公立の「独自」は 河合N ⇔ ベネ独 or 空 を許可）
+        const schedCompat = (a, b) => a === b || (a === '独' && b === '') || (a === '' && b === '独');
+        const schedClash = (a, b) => !schedCompat(a, b);
         // 方式名の類似度: 完全一致=2、共通する2文字連続の割合(0.5以上)=その値、それ以外=0
         function methodScore(kKey, bKey) {
             if (!kKey || !bKey) return 0;
@@ -826,6 +832,7 @@
             let pick = null, best = 0;
             if (kKey !== undefined) {
                 (kByUniv.get(kKey) || []).forEach(k => {
+                    if (schedClash(k.sched, b.sched)) return;                                    // 日程（前/後/共…）が合わない行は対象外
                     if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); }   // 河合側は初回のみ計算
                     const fs = nameScore(k.fk, b.fk);
                     if (fs === 0) return;
@@ -889,11 +896,11 @@
                 if (k) { attach(k, b); unassigned.delete(b); used.add(k); }
             });
 
-            // (3) 日程・方式とも空のベネ行は、残った「前/後/中でない河合の行」が1つだけならそこへ
-            [...unassigned].forEach(b => {
-                if (b.sched !== '' || b.mKey !== '') return;
-                const left = g.rows.filter(r => !used.has(r) && r.sched === '');
-                if (left.length === 1) { attach(left[0], b); unassigned.delete(b); used.add(left[0]); }
+            // (3) 同じ日程（一般・共通テスト利用・前期…）で、双方の残りがちょうど1行ずつなら対応づける
+            ['', '共', '独', '前', '後', '中'].forEach(sc => {
+                const bs = [...unassigned].filter(b => b.sched === sc);
+                const ks = g.rows.filter(r => !used.has(r) && r.sched === sc);
+                if (bs.length === 1 && ks.length === 1) { attach(ks[0], bs[0]); unassigned.delete(bs[0]); used.add(ks[0]); }
             });
 
             // 残りは「ベネのみ」の別行（無理に結び付けない）
