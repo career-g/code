@@ -525,8 +525,10 @@
                         <option value="1">国立大</option>
                         <option value="2">公立大</option>
                         <option value="3">私立大</option>
-                        <option value="4">国公立短大 / 準大学</option>
-                        <option value="5">私立短大・その他</option>
+                        <option value="4">国公立短大</option>
+                        <option value="5">私立短大</option>
+                        <option value="6">大学校</option>
+                        <option value="8">専門学校・その他</option>
                     </select>
                 </div>
                 <div style="font-size:0.58rem; color:#64748b; line-height:1.25; padding-bottom:2px;">
@@ -574,13 +576,45 @@
         loadBothCSVs();
     });
 
-    function normalizeUnivName(name) {
-        if (!name) return '';
-        let clean = String(name).replace(/['\u3000\s]+/g, '').replace(/大学$/, '').replace(/大$/, '');
-        if (clean.includes('名古屋工業') || clean === '名工') return '名古屋工業大学';
-        if (clean === '名古屋' || clean === '名大') return '名古屋大学';
-        if (clean === '名古屋市立' || clean === '名市大') return '名古屋市立大学';
-        return clean + '大学';
+    // ベネッセの学校区分コード(大学コード先頭1桁) → 河合の学校区分コードへ変換
+    // 河合: 1国 2公 3私 4国公立短大 5私立短大 6大学校 8専門学校等
+    // ベネ: 1国 2公 3私 4大学校 5公立短大 6私立短大 7専門 8看護専門 9分野系
+    const BENE_TYPE_TO_KAWAI = { '1':'1', '2':'2', '3':'3', '4':'6', '5':'4', '6':'5', '7':'8', '8':'8', '9':'8' };
+
+    // 自動で結び付かない大学の手動対応表 { "ベネッセ側の大学名": "河合塾側の大学名" }
+    const UNIV_ALIASES = {
+        "北教大旭川校": "北海道教育",
+        "北教大岩見沢校": "北海道教育",
+        "北教大釧路校": "北海道教育",
+        "北教大札幌校": "北海道教育",
+        "北教大函館校": "北海道教育",
+        // 他にも結び付かない大学があればここに追加: "ベネ側の名前": "河合側の名前",
+    };
+
+    // 検索用: 全角英数→半角, 小文字化
+    const nz = (s) => String(s || '').normalize('NFKC').toLowerCase();
+    const stripSpace = (s) => String(s || '').replace(/['\u3000\s]+/g, '');
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    // 大学名のキー（末尾の「大学」「大」だけ除去。「大学」を付け足さない）
+    function univKey(name) {
+        return stripSpace(name).replace(/大学$/, '').replace(/大$/, '');
+    }
+
+    // 日程の種別: 前 / 後 / 中 / '' (共通テスト利用・独自・不明)
+    function schedKey(text) {
+        const t = String(text || '');
+        if (t.includes('前')) return '前';
+        if (t.includes('後')) return '後';
+        if (t.includes('中')) return '中';
+        return '';
+    }
+
+    // 部分列判定: short の文字が long の中に順番通りに含まれるか（「旭川医大」⊂「旭川医科大学」）
+    function isSubsequence(short, long) {
+        let i = 0;
+        for (const c of long) { if (c === short[i]) i++; if (i === short.length) return true; }
+        return i === short.length;
     }
 
     async function loadBothCSVs() {
@@ -635,6 +669,7 @@
         const kHeaders = kLines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').replace(/^'/, '').replace(/^\ufeff/, ''));
         const kCol = {};
         kHeaders.forEach((h, idx) => { kCol[h] = idx; });
+        const kCode5Key = Object.keys(kCol).find(k => k.includes('記入用大学コード'));
 
         const kList = [];
         for (let i = 1; i < kLines.length; i++) {
@@ -642,139 +677,274 @@
             const row = parseCSVLine(kLines[i]);
             if (row.length < kHeaders.length) continue;
 
-            const kCode5Key = Object.keys(kCol).find(k => k.includes('記入用大学コード') || k.includes('5桁') || k.includes('５桁'));
-            const kCode5 = kCode5Key ? row[kCol[kCode5Key]] : (row[kCol['大学コード']] || '');
-            
+            const kCode5 = kCode5Key ? row[kCol[kCode5Key]] : '';
             const univ = row[kCol['大学名']] || '';
+            if (!kCode5 || !univ) continue;
             const fac = row[kCol['学部名']] || '';
             const dept = row[kCol['学科名']] || '';
             const method = row[kCol['日程方式名']] || '';
-            const type = row[kCol['学校区分']] || '1';
+            const type = String(row[kCol['学校区分']] || '').trim();
 
-            if (kCode5) {
-                kList.push({
-                    univ: univ,
-                    normUniv: normalizeUnivName(univ),
-                    fac: fac && fac !== '学部なし' ? fac.replace(/['\u3000\s]+/g, '').trim() : '',
-                    rawFac: fac,
-                    dept: dept && dept !== '学科なし' ? dept.replace(/['\u3000\s]+/g, '').trim() : '',
-                    rawDept: dept,
-                    method: method,
-                    type: String(type).trim(),
-                    codeKawai5: String(kCode5).trim()
-                });
-            }
+            kList.push({
+                id: 'k' + String(kCode5).trim(),          // 河合5桁コードは一意 → 安定したID
+                univ, key: univKey(univ),
+                rawFac: fac, rawDept: dept,
+                fac: fac && fac !== '学部なし' ? stripSpace(fac) : '',
+                dept: dept && dept !== '学科なし' ? stripSpace(dept) : '',
+                method, sched: schedKey(method), type,
+                codeKawai5: String(kCode5).trim()
+            });
         }
 
-        // --- ベネッセパース（列番号インデックス固定方式で確実化） ---
+        // --- ベネッセパース（列番号固定） ---
         const bLines = beneText.split(/\r\n|\n/);
         if (bLines.length < 2) throw new Error("benecode.csvの中身が空か、フォーマットが不正です。");
+        const cleanVal = (s) => s ? String(s).replace(/^'/, '').trim() : '';
 
         const bList = [];
         for (let i = 1; i < bLines.length; i++) {
             if (!bLines[i].trim()) continue;
             const row = parseCSVLine(bLines[i]);
-            if (row.length < 10) continue; // 最低限必要なカラム数チェック
+            if (row.length < 11) continue;
 
-            const cleanVal = (s) => s ? String(s).replace(/^'/, '').trim() : '';
-
-            // benecode.csv の標準列インデックス:
-            // 0: 大学コード, 1: 学部コード, 2: 学部学科コード等, 3: 日程コード, 4: 方式コード, 5: 小分類CD
-            // 6: 大学名, 7: 学部名, 8: 学学科名, 9: 日程, 10: 入試方式
-            const uCode = cleanVal(row[0]);
-            const fCode = cleanVal(row[1]);
-            const dCode = cleanVal(row[2]);
-            const mCode = cleanVal(row[3]);
-            const wCode = cleanVal(row[4]);
-
+            const uCode = cleanVal(row[0]), fCode = cleanVal(row[1]), dCode = cleanVal(row[2]);
+            const mCode = cleanVal(row[3]), wCode = cleanVal(row[4]);
             const univ = cleanVal(row[6]);
-            const fac = cleanVal(row[7]);
-            const dept = cleanVal(row[8]);
-            const method = cleanVal(row[9]);
-            const way = cleanVal(row[10]);
+            if (!uCode || !univ) continue;
+            const fac = cleanVal(row[7]), dept = cleanVal(row[8]);
+            const sched = cleanVal(row[9]), way = cleanVal(row[10]);
 
-            if (uCode) {
-                const raw10 = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
-                const displayBene10 = `${raw10.substring(0, 4)}-${raw10.substring(4, 6)}-${raw10.substring(6)}`;
-                const schoolType = uCode.charAt(0);
-
-                bList.push({
-                    univ: univ,
-                    normUniv: normalizeUnivName(univ),
-                    fac: fac ? fac.replace(/['\u3000\s]+/g, '').trim() : '',
-                    rawFac: fac,
-                    dept: dept ? dept.replace(/['\u3000\s]+/g, '').trim() : '',
-                    rawDept: dept,
-                    method: method + (way ? ' ' + way : ''),
-                    type: schoolType,
-                    codeBeneDisplay: displayBene10
-                });
-            }
+            const raw10 = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
+            bList.push({
+                id: 'b' + raw10,                          // ベネ10桁コードは一意
+                univ, key: univKey(univ),
+                rawFac: fac, rawDept: dept,
+                fac: stripSpace(fac), dept: stripSpace(dept),
+                method: sched + (way ? ' ' + way : ''),
+                sched: schedKey(sched),
+                type: BENE_TYPE_TO_KAWAI[uCode.charAt(0)] || '8',   // ← 河合の区分に変換
+                codeBene: `${raw10.substring(0, 4)}-${raw10.substring(4, 6)}-${raw10.substring(6)}`
+            });
         }
 
-        // --- マッチング統合処理 ---
-        let mergedMap = {};
-        let counter = 1;
+        // --- 大学名の対応づけ（ベネ大学名 → 河合の大学キー） ---
+        // 河合側の大学一覧
+        const kUnivs = new Map();   // key -> { name, type }
+        kList.forEach(k => { if (!kUnivs.has(k.key)) kUnivs.set(k.key, { name: k.univ, type: k.type }); });
+        const kByName = new Map(); kList.forEach(k => { if (!kByName.has(k.univ)) kByName.set(k.univ, k.key); });
 
+        const univMap = new Map();  // ベネ大学名 -> 河合key
+        const bUnivs = new Map();   // ベネ大学名 -> type
+        bList.forEach(b => { if (!bUnivs.has(b.univ)) bUnivs.set(b.univ, b.type); });
+
+        bUnivs.forEach((bType, bName) => {
+            // (1) 手動対応表
+            if (UNIV_ALIASES[bName] && kByName.has(UNIV_ALIASES[bName])) {
+                univMap.set(bName, kByName.get(UNIV_ALIASES[bName])); return;
+            }
+            // (2) 名前が一致（末尾の「大/大学」を除いて同じ）
+            const k = univKey(bName);
+            if (kUnivs.has(k)) { univMap.set(bName, k); return; }
+            // (3) 略称一致: 「旭川医大」→「旭川医科大学」のように部分列で一意に決まるものだけ採用
+            const bNorm = stripSpace(bName);
+            if (univKey(bNorm).length < 3) return;
+            const cands = [];
+            kUnivs.forEach((info, key) => {
+                if (info.type !== bType) return;                         // 学校区分が同じ
+                if (info.name.charAt(0) !== bNorm.charAt(0)) return;     // 先頭1文字が同じ
+                const full = /大学$|短大|大学校$/.test(info.name) ? info.name : info.name + '大学';
+                if (isSubsequence(bNorm, full)) cands.push({ key, len: info.name.length });
+            });
+            if (cands.length === 1) univMap.set(bName, cands[0].key);
+            else if (cands.length > 1) {
+                cands.sort((a, b) => a.len - b.len);
+                if (cands[0].len < cands[1].len) univMap.set(bName, cands[0].key);   // 一番短い候補が1つだけなら採用
+            }
+        });
+
+        // --- 行の統合 ---
+        // 同じ「大学・学部・学科」の中で、方式名の似かたを見て 河合の行 ⇔ ベネの行 を対応づける
+        // 学部名・学科名の近さ: 3=一致 / 2=含む / 1=略称（切り詰め）/ 0=別物。記号（／－・など）は無視
+        const nameKey = (t) => nz(t).replace(/[\s／/－\-ー・･()（）]+/g, '');
+        const nameScore = (a, b) => {   // a, b は nameKey 済みの文字列
+            if (!a && !b) return 3;
+            if (!a || !b) return 0;
+            if (a === b) return 3;
+            if (a.includes(b) || b.includes(a)) return 2;
+            const [sh, lg] = a.length <= b.length ? [a, b] : [b, a];
+            if (sh.length >= 3 && sh.charAt(0) === lg.charAt(0) && isSubsequence(sh, lg)) return 1;
+            return 0;
+        };
+
+        // 方式名の正規化: 全角→半角、余計な語を除去
+        const methodNorm = (t) => nz(t).replace(/[\s　]+/g, '').replace(/教科|科目|方式|入試|日程|型|全学統一|選抜/g, '');
+        const bigrams = (t) => {
+            if (t.length === 0) return [];
+            if (t.length === 1) return [t];
+            const r = []; for (let i = 0; i < t.length - 1; i++) r.push(t.substr(i, 2)); return r;
+        };
+        const SCHED_FULL = { '前': '前期', '後': '後期', '中': '中期' };
+        // 前/後/中 が両方にあって食い違うなら別物
+        const schedClash = (a, b) => a && b && ['前','後','中'].includes(a) && ['前','後','中'].includes(b) && a !== b;
+        // 方式名の類似度: 完全一致=2、共通する2文字連続の割合(0.5以上)=その値、それ以外=0
+        function methodScore(kKey, bKey) {
+            if (!kKey || !bKey) return 0;
+            if (kKey === bKey) return 2;
+            const kb = new Set(bigrams(kKey)), bb = bigrams(bKey);
+            let common = 0; bb.forEach(g => { if (kb.has(g)) common++; });
+            const sc = common / Math.min(kb.size, bb.length);
+            return sc >= 0.5 ? sc : 0;
+        }
+
+        const merged = new Map();
         kList.forEach(k => {
-            const id = 'mix_' + (counter++);
-            mergedMap[id] = {
-                id: id,
-                univ: k.univ,
-                normUniv: k.normUniv,
-                fac: k.rawFac,
-                dept: k.rawDept,
-                normFac: k.fac,
-                normDept: k.dept,
-                method: k.method,
-                type: k.type,
-                kawaiCode: k.codeKawai5,
-                beneCodeDisplay: '未設定（河合塾のみ）'
-            };
+            merged.set(k.id, {
+                id: k.id, univ: k.univ, univAlt: '', fac: k.rawFac, dept: k.rawDept,
+                method: k.method, type: k.type, kawaiCode: k.codeKawai5, beneCodes: []
+            });
+            k.mKey = methodNorm(k.method);
         });
 
+        // 河合の行を「大学key|学部|学科」でグループ化
+        const kGroups = new Map();      // gid -> { rows: [], b: [] }
+        const kByUniv = new Map();      // 大学key -> [kawai rows]
+        kList.forEach(k => {
+            k.gid = `${k.key}|${k.fac}|${k.dept}`;
+            if (!kGroups.has(k.gid)) kGroups.set(k.gid, { rows: [], b: [] });
+            kGroups.get(k.gid).rows.push(k);
+            if (!kByUniv.has(k.key)) kByUniv.set(k.key, []);
+            kByUniv.get(k.key).push(k);
+        });
+
+        // ベネの行を、学部・学科が合う河合グループへ振り分け（完全一致を優先）
+        const beneOnly = [];
         bList.forEach(b => {
-            let matchedId = null;
-            for (let id in mergedMap) {
-                let m = mergedMap[id];
-                if (m.normUniv === b.normUniv) {
-                    const facMatch = (!m.normFac && !b.fac) || (m.normFac && b.fac && (m.normFac === b.fac || m.normFac.includes(b.fac) || b.fac.includes(m.normFac)));
-                    const deptMatch = (!m.normDept && !b.dept) || (m.normDept && b.dept && (m.normDept === b.dept || m.normDept.includes(b.dept) || b.dept.includes(m.normDept)));
-                    
-                    if (facMatch && deptMatch) {
-                        matchedId = id;
-                        break;
-                    }
-                }
+            b.mKey = methodNorm(b.method.replace(/^[^ ]*\s?/, '')) || (SCHED_FULL[b.sched] || '');   // 「前 数学」→方式部分、なければ日程
+            const kKey = univMap.get(b.univ);
+            b.fk = nameKey(b.fac); b.dk = nameKey(b.dept);
+            b.wk = nameKey(b.method.replace(/^[^ ]*\s?/, ''));   // ベネの方式名（日程を除いた部分）
+            let pick = null, best = 0;
+            if (kKey !== undefined) {
+                (kByUniv.get(kKey) || []).forEach(k => {
+                    if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); }   // 河合側は初回のみ計算
+                    const fs = nameScore(k.fk, b.fk);
+                    if (fs === 0) return;
+                    const ds = nameScore(k.dk, b.dk);
+                    if (ds === 0) return;
+                    // 同点のときの決め手: ベネの方式名（地域枠など）が河合の学科名・方式名に入っているか
+                    //   例）ベネ「医 / 地域枠」→ 河合「医（地域枠）」。方式名が空なら「一般」を含む方を優先
+                    if (k.hk === undefined) k.hk = nameKey(k.rawDept + k.method);
+                    let bonus = 0;
+                    if (b.wk) { if (k.hk.includes(b.wk)) bonus = 0.5; }
+                    else if (k.hk.includes('一般')) bonus = 0.25;
+                    if (fs + ds + bonus > best) { best = fs + ds + bonus; pick = k; }   // 一番近い学部・学科を採用
+                });
             }
-
-            if (matchedId) {
-                mergedMap[matchedId].beneCodeDisplay = b.codeBeneDisplay;
-            } else {
-                const id = 'mix_' + (counter++);
-                mergedMap[id] = {
-                    id: id,
-                    univ: b.univ,
-                    normUniv: b.normUniv,
-                    fac: b.rawFac,
-                    dept: b.rawDept,
-                    normFac: b.fac,
-                    normDept: b.dept,
-                    method: b.method,
-                    type: b.type,
-                    kawaiCode: '未設定（ベネッセのみ）',
-                    beneCodeDisplay: b.codeBeneDisplay
-                };
-            }
+            if (pick) kGroups.get(pick.gid).b.push(b); else beneOnly.push(toBeneOnly(b));
         });
 
-        unifiedData = Object.values(mergedMap);
+        function toBeneOnly(b) {
+            // 大学が河合と対応づいているなら、河合の大学名で表示（略称との二重表示を防ぐ）
+            const kk = univMap.get(b.univ);
+            const ki = kk !== undefined ? kUnivs.get(kk) : null;
+            return {
+                id: b.id, univ: ki ? ki.name : b.univ, univAlt: ki ? b.univ : '',
+                fac: b.rawFac, dept: b.rawDept,
+                method: b.method, type: ki ? ki.type : b.type, kawaiCode: '',
+                beneCodes: [{ code: b.codeBene, label: '' }]
+            };
+        }
+        const attach = (k, b) => {
+            const m = merged.get(k.id);
+            m.beneCodes.push({ code: b.codeBene, label: b.method.trim() });
+            if (!m.univAlt) m.univAlt = b.univ;
+        };
+
+        kGroups.forEach(g => {
+            const unassigned = new Set(g.b);
+            const used = new Set();            // すでにコードが付いた河合の行
+
+            // (1) 方式名が似ているもの同士を、点数の高い順に1対1で対応づけ
+            const pairs = [];
+            g.rows.forEach(k => g.b.forEach(b => {
+                if (schedClash(k.sched, b.sched)) return;
+                let sc = methodScore(k.mKey, b.mKey);
+                // 略称（3文字程度に切り詰められた方式名）: 「統一３」⊂「全学統一３科目」のように部分列なら低めの点で候補にする
+                if (sc === 0) {
+                    if (k.mRaw === undefined) k.mRaw = nameKey(k.method);
+                    if (b.wk && b.wk.length >= 3 && isSubsequence(b.wk, k.mRaw)) sc = 0.6;
+                }
+                if (sc > 0) pairs.push({ k, b, sc });
+            }));
+            pairs.sort((x, y) => y.sc - x.sc);
+            pairs.forEach(p => {
+                if (!unassigned.has(p.b) || used.has(p.k)) return;
+                attach(p.k, p.b); unassigned.delete(p.b); used.add(p.k);
+            });
+
+            // (2) 前期/後期/中期 が同じなら、方式の細かい違い（前 数学/前 数理 など）は同じ河合の行へまとめる
+            [...unassigned].forEach(b => {
+                if (!['前','後','中'].includes(b.sched)) return;
+                const k = g.rows.find(r => r.sched === b.sched);
+                if (k) { attach(k, b); unassigned.delete(b); used.add(k); }
+            });
+
+            // (3) 日程・方式とも空のベネ行は、残った「前/後/中でない河合の行」が1つだけならそこへ
+            [...unassigned].forEach(b => {
+                if (b.sched !== '' || b.mKey !== '') return;
+                const left = g.rows.filter(r => !used.has(r) && r.sched === '');
+                if (left.length === 1) { attach(left[0], b); unassigned.delete(b); used.add(left[0]); }
+            });
+
+            // 残りは「ベネのみ」の別行（無理に結び付けない）
+            unassigned.forEach(b => beneOnly.push(toBeneOnly(b)));
+        });
+
+        unifiedData = [...merged.values(), ...beneOnly];
+        unifiedData.forEach(it => {
+            it.sUniv = nz(it.univ + ' ' + it.univAlt);
+            it.sFac = nz(it.fac); it.sDept = nz(it.dept); it.sMethod = nz(it.method);
+        });
         dataMap = {};
         unifiedData.forEach(item => { dataMap[item.id] = item; });
 
+        const matchedK = [...merged.values()].filter(m => m.beneCodes.length).length;
         document.getElementById("status-msg").style.display = "none";
-        document.getElementById("header-year-sub").innerText = `河合塾(${kList.length}件) ＆ ベネッセ(${bList.length}件) 統合完了`;
+        document.getElementById("header-year-sub").innerText =
+            `河合塾(${kList.length}件) ＆ ベネッセ(${bList.length}件) / 両方に存在 ${matchedK}件`;
         filterData();
+    }
+
+    // コード表示用ヘルパー（旧バージョンで保存した項目にも対応）
+    function kawaiCodeText(item) { return item.kawaiCode || '未設定（ベネッセのみ）'; }
+    function beneCodesOf(item) {
+        if (Array.isArray(item.beneCodes)) return item.beneCodes;
+        if (item.beneCodeDisplay && !item.beneCodeDisplay.startsWith('未設定')) return [{ code: item.beneCodeDisplay, label: '' }];
+        return [];
+    }
+    function beneCodesHtml(item) {
+        const list = beneCodesOf(item);
+        if (list.length === 0) return `<div class="code-row"><span class="code-label">ベネ(10):</span><span class="code-val">未設定（河合塾のみ）</span></div>`;
+        const ks = schedKey(item.method);
+        const isPublic = item.type === '1' || item.type === '2';   // 国公立
+        // ラベルは「コードを見分けるのに必要なときだけ」表示
+        //  ・先頭の 前/後/中 は、河合の行の日程と同じなら省略（画面に「前期」と出ているため）
+        //  ・国公立は、同じ行にコードが複数あるときだけ表示
+        const cleanLabel = (l) => {
+            l = String(l || '').trim();
+            const m = l.match(/^(前|後|中)(\s+|$)/);
+            if (m && (!ks || ks === m[1])) l = l.slice(m[0].length);
+            return l.trim();
+        };
+        return list.map(c => {
+            let label = cleanLabel(c.label);
+            if (isPublic && list.length < 2) label = '';
+            return `
+            <div class="code-row">
+                <span class="code-label">ベネ(10)${label ? ' ' + esc(label) : ''}:</span>
+                <span class="code-val">${esc(c.code)}</span>
+            </div>`;
+        }).join('');
     }
 
     function getBgClass(item) {
@@ -792,7 +962,9 @@
             case '1': return '<span class="type-badge type-kokuritsu">国</span>';
             case '2': return '<span class="type-badge type-koritsu">公</span>';
             case '3': return '<span class="type-badge type-shiritsu">私</span>';
-            default:  return '<span class="type-badge type-other">短/他</span>';
+            case '4': case '5': return '<span class="type-badge type-other">短</span>';
+            case '6': return '<span class="type-badge type-other">校</span>';
+            default:  return '<span class="type-badge type-other">他</span>';
         }
     }
 
@@ -804,7 +976,7 @@
             dept: document.getElementById("s-dept").value,
             method: document.getElementById("s-method").value
         };
-        localStorage.setItem("mix_search_conditions", JSON.stringify(conditions));
+        try { localStorage.setItem("mix_search_conditions", JSON.stringify(conditions)); } catch (e) {}
         filterData();
     }
 
@@ -826,10 +998,10 @@
         if (unifiedData.length === 0) return;
 
         const qType = document.getElementById("s-type").value;
-        const qUniv = document.getElementById("s-univ").value.trim().toLowerCase();
-        const qFac = document.getElementById("s-fac").value.trim().toLowerCase();
-        const qDept = document.getElementById("s-dept").value.trim().toLowerCase();
-        const qMethod = document.getElementById("s-method").value.trim().toLowerCase();
+        const qUniv = nz(document.getElementById("s-univ").value.trim());
+        const qFac = nz(document.getElementById("s-fac").value.trim());
+        const qDept = nz(document.getElementById("s-dept").value.trim());
+        const qMethod = nz(document.getElementById("s-method").value.trim());
 
         const countBox = document.getElementById("match-count-box");
         const container = document.getElementById("result-container");
@@ -842,10 +1014,10 @@
 
         const filtered = unifiedData.filter(item => {
             if (qType && item.type !== qType) return false;
-            if (qUniv && !item.univ.toLowerCase().includes(qUniv) && !item.normUniv.toLowerCase().includes(qUniv)) return false;
-            if (qFac && !item.fac.toLowerCase().includes(qFac)) return false;
-            if (qDept && !item.dept.toLowerCase().includes(qDept)) return false;
-            if (qMethod && !item.method.toLowerCase().includes(qMethod)) return false;
+            if (qUniv && !item.sUniv.includes(qUniv)) return false;
+            if (qFac && !item.sFac.includes(qFac)) return false;
+            if (qDept && !item.sDept.includes(qDept)) return false;
+            if (qMethod && !item.sMethod.includes(qMethod)) return false;
             return true;
         });
 
@@ -899,24 +1071,21 @@
                 facItems.forEach(item => {
                     const bgClass = getBgClass(item);
                     
-                    let mainStr = `<span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
+                    let mainStr = `<span class="bold-fac">${esc(item.fac || '学部なし')}</span>`;
                     if (item.dept) {
-                        mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
+                        mainStr += ` / <span class="normal-dept">${esc(item.dept)}</span>`;
                     }
                     
-                    const badgeHtml = item.method ? `<div class="sub-card-meta"><span class="sub-card-badge">${item.method}</span></div>` : '';
+                    const badgeHtml = item.method ? `<div class="sub-card-meta"><span class="sub-card-badge">${esc(item.method)}</span></div>` : '';
 
                     cardsHtml += `
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
                                 <div class="code-row">
                                     <span class="code-label">河合(5):</span>
-                                    <span class="code-val">${item.kawaiCode}</span>
+                                    <span class="code-val">${esc(kawaiCodeText(item))}</span>
                                 </div>
-                                <div class="code-row">
-                                    <span class="code-label">ベネ(10):</span>
-                                    <span class="code-val">${item.beneCodeDisplay}</span>
-                                </div>
+                                ${beneCodesHtml(item)}
                                 <button style="margin-top:2px; width:100%; padding:2px 0;" onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
                             </div>
                             <div class="sub-card-content">
@@ -929,7 +1098,7 @@
 
                 facHtml += `
                     <div class="fac-section">
-                        <div class="fac-title">${facName}</div>
+                        <div class="fac-title">${esc(facName)}</div>
                         <div class="fac-cards-wrapper">
                             ${cardsHtml}
                         </div>
@@ -944,7 +1113,7 @@
                     <div class="univ-header" onclick="toggleUnivGroup(${index})">
                         <div class="univ-header-left">
                             ${typeBadgeHtml}
-                            <span>${univName}</span>
+                            <span>${esc(univName)}</span>
                             <span class="univ-count-badge">${univItems.length}件</span>
                         </div>
                         <div class="univ-arrow">▼</div>
@@ -1038,7 +1207,7 @@
     }
 
     function saveListToStorage() {
-        localStorage.setItem("mix_saved_list", JSON.stringify(savedList));
+        try { localStorage.setItem("mix_saved_list", JSON.stringify(savedList)); } catch (e) {}
     }
 
     function loadSavedListFromStorage() {
@@ -1069,8 +1238,8 @@
             const bgClass = getBgClass(item);
             const typeBadgeHtml = getTypeBadgeHtml(item.type);
             
-            let mainStr = `${typeBadgeHtml}<strong>${item.univ}</strong> <span class="bold-fac">${item.fac ? item.fac : '学部なし'}</span>`;
-            if (item.dept) mainStr += ` / <span class="normal-dept">${item.dept}</span>`;
+            let mainStr = `${typeBadgeHtml}<strong>${esc(item.univ)}</strong> <span class="bold-fac">${esc(item.fac || '学部なし')}</span>`;
+            if (item.dept) mainStr += ` / <span class="normal-dept">${esc(item.dept)}</span>`;
 
             const isFirst = idx === 0;
             const isLast = idx === savedList.length - 1;
@@ -1080,17 +1249,14 @@
                     <div class="sub-card-code-area">
                         <div class="code-row">
                             <span class="code-label">河合(5):</span>
-                            <span class="code-val">${item.kawaiCode}</span>
+                            <span class="code-val">${esc(kawaiCodeText(item))}</span>
                         </div>
-                        <div class="code-row">
-                            <span class="code-label">ベネ(10):</span>
-                            <span class="code-val">${item.beneCodeDisplay}</span>
-                        </div>
+                        ${beneCodesHtml(item)}
                         <button class="sub-delete" style="width:100%; margin-top:2px;" onclick="confirmRemoveFromList(${idx})">削除</button>
                     </div>
                     <div class="sub-card-content">
                         <div class="sub-card-main">${mainStr}</div>
-                        ${item.method ? `<div class="sub-card-meta"><span class="sub-card-badge">${item.method}</span></div>` : ''}
+                        ${item.method ? `<div class="sub-card-meta"><span class="sub-card-badge">${esc(item.method)}</span></div>` : ''}
                     </div>
                     <div class="order-btn-group">
                         <button class="order-btn" onclick="moveSavedItem(${idx}, -1)" ${isFirst ? 'disabled' : ''}>▲</button>
@@ -1123,7 +1289,7 @@
         }
 
         let textData = savedList.map((item, idx) => {
-            return `${idx + 1}. ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | 河合(5):[${item.kawaiCode}] ベネ(10):[${item.beneCodeDisplay}]`;
+            return `${idx + 1}. ${item.univ} | ${item.fac || ''} | ${item.dept || ''} | 河合(5):[${item.kawaiCode || '-'}] ベネ(10):[${beneCodesOf(item).map(c => c.code).join(' / ') || '-'}]`;
         }).join("\n");
 
         navigator.clipboard.writeText(textData).then(() => {
