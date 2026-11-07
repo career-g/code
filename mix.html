@@ -617,7 +617,20 @@
         "北教大釧路校": "北海道教育",
         "北教大札幌校": "北海道教育",
         "北教大函館校": "北海道教育",
+        "東京芸大": "東京芸術",
+        "諏訪東京理大": "公立諏訪東京理科",
         // 他にも結び付かない大学があればここに追加: "ベネ側の名前": "河合側の名前",
+    };
+
+    // 地域名の略称 → 河合側に出てくる言語名・国名（文字が重ならない略称を結ぶための辞書。東京外大「言文／中欧」⇔「ポーランド語・チェコ語」など）
+    //   辞書にない地域は、他のルール（名前の似かた・件数）で結ぶ。増えたらここに足す
+    const REGION_ALIASES = {
+        "中欧": ["ポーランド", "チェコ", "スロバキア", "ハンガリー"],
+        "中央ア": ["ウズベク", "モンゴル", "カザフ"],
+        "中東": ["アラビア", "ペルシア", "トルコ", "ヘブライ"],
+        "南アジ": ["ウルドゥー", "ヒンディー", "ベンガル", "タミル", "シンハラ"],
+        "東南1": ["インドネシア", "マレーシア", "フィリピン"],
+        "東南2": ["タイ", "ラオス", "ベトナム", "カンボジア", "ビルマ", "ミャンマー"],
     };
 
     // 河合「大学グループ区分」→ 日程（ベネの「日程」と同じ記号にそろえる）
@@ -786,8 +799,9 @@
             const cands = [];
             kUnivs.forEach((info, key) => {
                 if (info.type !== bType) return;                         // 学校区分が同じ
-                if (info.name.charAt(0) !== bNorm.charAt(0)) return;     // 先頭1文字が同じ
-                const full = /大学$|短大|大学校$/.test(info.name) ? info.name : info.name + '大学';
+                const kn = info.name.replace(/^公立/, '');               // 「公立千歳科学技術」⇔「千歳科学技大」のように、河合側の「公立」は外して比べる
+                if (kn.charAt(0) !== bNorm.charAt(0)) return;            // 先頭1文字が同じ
+                const full = /大学$|短大|大学校$/.test(kn) ? kn : kn + '大学';
                 if (isSubsequence(bNorm, full)) cands.push({ key, len: info.name.length });
             });
             if (cands.length === 1) univMap.set(bName, cands[0].key);
@@ -823,11 +837,56 @@
             if (kAbbr.startsWith(bSeg)) return 3.0 + 0.8 * (bSeg.length / kAbbr.length);   // 切り詰め（先頭一致）。従来の部分一致より優先
             return 0;
         };
+        // ベネの学科名（切り詰め・略称）が河合の学科名の部分列なら、一致し終えた後ろの部分を返す
+        //   例）河合「数物科学（数学選択）」×ベネ「数物科学」→「数学選択」 / 河合「応用化学生物ａ」→「ａ」
+        const abbrTail = (kAbbr, bSeg) => {
+            if (!kAbbr || !bSeg || bSeg.charAt(0) !== kAbbr.charAt(0)) return null;
+            let i = 0;
+            for (let j = 0; j < kAbbr.length; j++) {
+                if (kAbbr[j] === bSeg[i]) { i++; if (i === bSeg.length) return kAbbr.slice(j + 1); }
+            }
+            return null;
+        };
+        // ベネの方式名（数学・数理・ａ・文系ａ など）が、その後ろの部分の文字だけでできているか（順序は問わない・重複は数える）
+        //   例）「文系ａ」→河合「学ａ文系」 / 「数理」→「数学理科選択」。長さが近いほど高得点
+        const tailMatch = (wk, tail) => {
+            if (!wk || !tail) return 0;
+            // 同じ文字は使った分だけ消費する（「Ⅱ」=ii が「Ⅰ」=i に当たらないように）
+            let rest = tail;
+            for (const c of wk) { const i = rest.indexOf(c); if (i < 0) return 0; rest = rest.slice(0, i) + rest.slice(i + 1); }
+            return 0.5 + 0.4 * Math.min(1, wk.length / tail.length);
+        };
+        // 括弧書き・「学類/学科」などを外した学科の基本名（河合「医（一般枠）」「学校教育（共同教員養成）Ａ」⇔ベネ「医学類」「学校教育学類」）
+        const deptBase = (t) => {
+            let x = nz(t).replace(/[（(【\[][^）)】\]]*[）)】\]]/g, '');
+            const q = x.split(/[\/\-]/); x = q[q.length - 1];
+            x = nameKey(x).replace(/(学類|学科|学域|学系|コース|専攻|課程)$/, '').replace(/^(.{2,})[a-c]$/, '$1');
+            return x;
+        };
+        // 昼間/夜間（第２部）の区別。片方だけ夜間・第２部なら別の学部として扱う（外国語２＝外国語（第２部）、教育夜＝教育（夜間主））
+        const facClass = (raw) => /夜|第?[2二]部|[^0-9]2$/.test(nz(raw)) ? 'N' : '';
+        // 方式名の語尾（系・型・方式…）は比べる対象から外す（「国語系」⇔「国語」「理系型」⇔「理系」）
+        const GEN = /[系型]|方式|コース|入試|選抜|タイプ/g;
+        const bag = (a, t) => {   // a の文字のうち t に（重複を数えて）含まれる割合
+            if (!a) return 0;
+            let rest = t, n = 0;
+            for (const c of a) { const i = rest.indexOf(c); if (i >= 0) { n++; rest = rest.slice(0, i) + rest.slice(i + 1); } }
+            return n / a.length;
+        };
+        // 英数字だけの方式名（Ⅰ=i, Ⅱ=ii, Ａ=a …）は「前後が英数字でない」ときだけ含まれているとみなす（「i」が「ii」に当たらないように）
+        const hasTok = (hk, w) => {
+            if (!w) return false;
+            if (!/^[a-z0-9]+$/.test(w)) return hk.includes(w);
+            return new RegExp('(^|[^a-z0-9])' + w + '($|[^a-z0-9])').test(hk);
+        };
+        // 河合の学科名の括弧書き（「（物）」「（理系）」「（島根県地域枠）」）
+        const deptQual = (raw) => { const m = String(raw || '').match(/[（(【]([^）)】]*)[）)】]/); return m ? nameKey(m[1]) : ''; };
         const nameScore = (a, b) => {   // a, b は nameKey 済みの文字列
             if (!a && !b) return 3;
             if (!a || !b) return 0;
             if (a === b) return 3;
             const [sh, lg] = a.length <= b.length ? [a, b] : [b, a];
+            if (sh.length === 1 && !lg.startsWith(sh)) return 0;             // 1文字だけの一致は先頭のときだけ（「理」と「総合理系」は別物）
             if (lg.includes(sh)) return 1.5 + 1.4 * (sh.length / lg.length);   // 含む（長さが近いほど高得点。上限は一致の3未満）
             if (sh.length >= 3 && sh.charAt(0) === lg.charAt(0) && isSubsequence(sh, lg)) return 1;
             return 0;
@@ -886,11 +945,11 @@
         });
 
         // ベネの行を、学部・学科が合う河合グループへ振り分け（完全一致を優先）
-        const beneOnly = [];
+        let beneOnly = [];
         bList.forEach(b => {
             b.mKey = methodNorm(b.method.replace(/^[^ ]*\s?/, '')) || (SCHED_FULL[b.sched] || '');   // 「前 数学」→方式部分、なければ日程
             const kKey = univMap.get(b.univ);
-            b.fk = nameKey(b.fac); b.dk = nameKey(b.dept); b.dl = lastSeg(b.rawDept);
+            b.fk = nameKey(b.fac); b.dk = nameKey(b.dept); b.dl = lastSeg(b.rawDept); b.db = deptBase(b.rawDept);
             // 手動対応表に載っているキャンパス別の大学（北教大札幌校 など）は、河合の学部名（教育札幌校）に同じキャンパス名があるものだけが対象
             b.campus = UNIV_ALIASES[b.univ] ? ((nameKey(b.univ).match(/(.{2}校)$/) || [])[1] || '') : '';
             b.wk = nameKey(b.method.replace(/^[^ ]*\s?/, ''));   // ベネの方式名（日程を除いた部分）
@@ -900,19 +959,55 @@
                     if (schedClash(k.sched, b.sched)) return;                                    // 日程（前/後/共…）が合わない行は対象外
                     if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); k.dl = lastSeg(k.rawDept); }   // 河合側は初回のみ計算
                     if (b.campus && !k.fk.includes(b.campus)) return;                           // 別キャンパスの行には結び付けない
+                    if (facClass(k.rawFac) !== facClass(b.rawFac)) return;                       // 昼間と夜間（第２部）は取り違えない
                     const fs = nameScore(k.fk, b.fk);
                     if (fs === 0) return;
                     if (k.da === undefined) k.da = abbrSeg(k.rawDept);
+                    if (k.db === undefined) k.db = deptBase(k.rawDept);
                     const as = abbrScore(k.da, lastSeg(b.rawDept));
                     if (as < 0) return;                                                          // 義務/高等が食い違う行は対象外
-                    const ds = as > 0 ? as : Math.max(nameScore(k.dk, b.dk), segScore(k.dl, b.dl));
+                    let ds = as > 0 ? as : Math.max(nameScore(k.dk, b.dk), segScore(k.dl, b.dl));
+                    // ベネの学科名が空で、方式欄に重点・コース名が入っている場合（北大「総合理系 / 前 数学」→河合「数学重点」）
+                    if (ds === 0 && !b.dk && b.wk && k.dk && k.dk.startsWith(b.wk)) ds = 2.0 + 0.8 * (b.wk.length / k.dk.length);
+                    // 略称（「保体中」⊂「教科－保健体育（中）」、「イベラ」⊂「イベリア／ラテンアメリカ」）: 先頭の文字が同じで、文字が順番どおりに含まれる場合だけ、弱い点で候補にする
+                    if (ds === 0 && b.dl.length >= 3) {
+                        if (k.dfull === undefined) k.dfull = nameKey(k.rawDept);
+                        if ((k.dl.charAt(0) === b.dl.charAt(0) || k.dfull.charAt(0) === b.dl.charAt(0)) && isSubsequence(b.dl, k.dfull)) ds = 1.0 + 0.9 * Math.min(1, b.dl.length / k.dfull.length);
+                    }
+                    // 括弧書き・「学類」を外した学科名が同じなら同じ学科（枠・方式の違いは下のボーナスで選ぶ）
+                    if (ds < 2.8 && k.db && b.db && k.db === b.db) ds = 2.8;
+                    // ベネでは方式欄にある名前（文系型・音楽…）が、河合では学科名や括弧書きになっている（滋賀「学校教育 / 前 文系型」→「学校－文系型」「学校－実技型（音楽）」）
+                    if (ds === 0 && b.wk) {
+                        if (k.dq === undefined) k.dq = deptQual(k.rawDept);
+                        const wc0 = b.wk.replace(GEN, ''), kl = k.dl.replace(GEN, '');
+                        if (wc0.length >= 2 && (kl === wc0 || (k.dq && isSubsequence(wc0, k.dq.replace(GEN, ''))))) ds = 2.0;
+                    }
                     if (ds === 0) return;
                     // 同点のときの決め手: ベネの方式名（地域枠など）が河合の学科名・方式名に入っているか
                     //   例）ベネ「医 / 地域枠」→ 河合「医（地域枠）」。方式名が空なら「一般」を含む方を優先
                     if (k.hk === undefined) k.hk = nameKey(k.rawDept + k.method);
                     let bonus = 0;
-                    if (b.wk) { if (k.hk.includes(b.wk)) bonus = 0.5; }
+                    const tm = tailMatch(b.wk, abbrTail(k.da, b.dl));   // 河合の学科名の末尾（選択科目・ａｂ・文理）とベネの方式名の照合
+                    if (tm > 0) bonus = tm;
+                    else if (b.wk) {
+                        const wc = b.wk.replace(GEN, '');   // 「国語系」→「国語」
+                        if (hasTok(k.hk, b.wk) || (wc && hasTok(k.hk, wc))) bonus = 0.5;
+                        else bonus = 0.3 * bag(wc || b.wk, k.hk);   // 一部だけ合う（「数学」⇔「（数）」「茨城県」⇔「茨城」）
+                        if (bonus === 0) bonus = -0.5;               // 方式名があるのに河合側に手がかりがない行は、手がかりのある行に負ける
+                    }
                     else if (k.hk.includes('一般')) bonus = 0.25;
+                    else if (/[（(【]/.test(k.rawDept)) bonus = -0.3;      // ベネに方式名がなければ、枠・方式の括弧書きが付いていない行を優先
+                    // 河合の括弧書き（「（物）」「（理系）」）が、ベネの方式名（「Ⅰ物理」「理系型」）の頭に当たる
+                    if (b.wk) {
+                        if (k.dq === undefined) k.dq = deptQual(k.rawDept);
+                        const w2 = b.wk.replace(/^[ⅰ-ⅹivx0-9]+/, '').replace(GEN, '');
+                        if (k.dq && w2) { if (w2.startsWith(k.dq.replace(GEN, ''))) bonus += 0.4; else if (w2.includes(k.dq.replace(GEN, ''))) bonus += 0.1; }
+                    }
+                    // ベネの学科名が「A／B」の形なら、A・Bそれぞれが河合の学科名に含まれるものを優先（京都工芸繊維「生物／地域創」→「応用生物学（地域創生）」）
+                    {
+                        const sg = nz(b.rawDept).split(/[\/\-]/).map(nameKey).filter(x => x.length >= 2);
+                        if (sg.length >= 2) { if (k.dfull === undefined) k.dfull = nameKey(k.rawDept); sg.forEach(x => { if (isSubsequence(x, k.dfull)) bonus += 0.5; }); }
+                    }
                     if (fs + ds + bonus > best) { best = fs + ds + bonus; pick = k; }   // 一番近い学部・学科を採用
                 });
             }
@@ -940,12 +1035,15 @@
                 id: b.id, univ: ki ? ki.name : b.univ, univAlt: ki ? b.univ : '',
                 fac: facName, dept: deptName,
                 method: b.method, type: ki ? ki.type : b.type, sched: b.sched, kawaiCode: '',
-                beneCodes: [{ code: b.codeBene, label: '' }]
+                beneCodes: [{ code: b.codeBene, label: '' }],
+                _b: b
             };
         }
         const attach = (k, b) => {
             const m = merged.get(k.id);
-            m.beneCodes.push({ code: b.codeBene, label: b.method.trim() });
+            const e = { code: b.codeBene, label: b.method.trim() };
+            Object.defineProperty(e, '_b', { value: b, enumerable: false, writable: true });   // 後の見直し用（localStorage には保存しない）
+            m.beneCodes.push(e);
             if (!m.univAlt) m.univAlt = b.univ;
         };
 
@@ -1005,6 +1103,197 @@
             unassigned.forEach(b => beneOnly.push(toBeneOnly(b, { fac: g.rows[0].rawFac, dept: g.rows[0].rawDept })));
         });
 
+        // ================= 仕上げ: 河合にもベネにも残った行同士を、名前の似かただけで結ぶ =================
+        //  コード番号は一切使わない（来年度コードが変わっても同じルールで動く）。
+        //  (A) 文字の含まれかた（略称・順序つき部分列・系/型を除いた一致）で似ているものを、似ている順に1対1で結ぶ
+        //  (B) それでも残り、同じ大学・学部・日程で河合とベネの件数がぴったり同じなら、コード順に結ぶ（国公立のみ・「推定」と表示）
+        {
+            const kLeft = kList.filter(k => merged.get(k.id).beneCodes.length === 0);
+            const bLeft = beneOnly.filter(x => x._b && univMap.has(x._b.univ)).map(x => x._b);
+            const consumed = new Set();
+            const prep = (k) => {
+                if (k.fk === undefined) { k.fk = nameKey(k.fac); k.dk = nameKey(k.dept); k.dl = lastSeg(k.rawDept); }
+                if (k.hk === undefined) k.hk = nameKey(k.rawDept + k.method);
+                if (k.dfull === undefined) k.dfull = nameKey(k.rawDept);
+                if (k.ffull === undefined) k.ffull = nameKey(k.rawFac + k.rawDept);
+            };
+            const compat = (k, b) => {          // 日程・キャンパス・昼夜・学部名が合うか → 学部の近さ（0なら不可）
+                if (univMap.get(b.univ) !== k.key) return 0;
+                if (schedClash(k.sched, b.sched) || textClash(k, b)) return 0;
+                prep(k);
+                if (b.campus && !k.fk.includes(b.campus)) return 0;
+                if (facClass(k.rawFac) !== facClass(b.rawFac)) return 0;
+                let fs = nameScore(k.fk, b.fk);
+                if (fs === 0 && b.fk.length >= 3 && b.fk.charAt(0) === k.ffull.charAt(0) && isSubsequence(b.fk, k.ffull)) fs = 1;   // 「総合理Ⅲ」⊂「総合選抜＋理系Ⅲ」
+                return fs;
+            };
+            const textScore = (k, b) => {       // 学科名・方式名の似かた（0なら根拠なし）
+                const kd = k.hk, dl = lastSeg(b.rawDept), wk = b.wk.replace(GEN, '');
+                let ts = 0;
+                // 地域名の略称（辞書）: ベネ「言文／中欧」の「中欧」が、河合の言語名（ポーランド語・チェコ語）に当たる
+                for (const x of nz(b.rawDept).split(/[\/\-]/).map(nameKey)) {
+                    const ws = REGION_ALIASES[x];
+                    if (ws && ws.some(w => kd.includes(nameKey(w)))) return 3;
+                }
+                // ベネ「デザ／一般プ」「化学／一般プ」: 「／」で区切った前半が河合の学科名（略称）、後半が河合の括弧書き（（一般）（地域創生））の頭に当たる
+                const sg = nz(b.rawDept).split(/[\/\-]/).map(nameKey).filter(x => x.length >= 2);
+                if (sg.length >= 2) {
+                    if (k.db === undefined) k.db = deptBase(k.rawDept);
+                    if (k.dq === undefined) k.dq = deptQual(k.rawDept);
+                    sg.forEach((x, i) => {
+                        if (i < sg.length - 1) { if (isSubsequence(x, kd)) ts += 1 + (k.db && k.db.startsWith(x) ? 0.5 : 0); }                 // 前半（学科の略称）。河合の学科名の頭と合えば加点
+                        else if (k.dq && k.dq.length >= 2 && x.startsWith(k.dq)) ts += 1;                                                    // 後半（方式）。「一般プ」⊃「一般」
+                    });
+                    if (ts >= 2) return ts;
+                    ts = 0;
+                }
+                if (dl.length >= 2 && isSubsequence(dl, kd)) ts += 1 + Math.min(1, dl.length / kd.length);
+                if (wk.length >= 2 && isSubsequence(wk, kd)) ts += 1 + Math.min(1, wk.length / kd.length);
+                else if (wk.length >= 2 && bag(wk, kd) >= 0.6) ts += bag(wk, kd);                  // 「Ａ数外」⇔「Ａ方式（英・数）」「Ⅰ化学」⇔「理Ⅰ（化）」
+                else if (/^[a-z]$/.test(wk) && kd.includes(wk)) ts += 1;                            // 「Ａ」⇔「Ａ方式」
+                if (ts === 0 && !b.dl && !b.wk && b.fk.length >= 3 && isSubsequence(b.fk, k.ffull) && nameScore(k.fk, b.fk) === 0) ts = 1 + Math.min(1, b.fk.length / k.ffull.length);   // 学部名が「河合の学部＋学科」にまたがる場合
+                return ts;
+            };
+            // (0) 多重対応の解消: 河合の1行にベネのコードが2つ以上付いていて、その行の名前に合わないコードがあり、
+            //     同じ大学・学部・日程に「まだコードのない河合の行」があれば、そちらのほうが合うコードを移す
+            //     （大阪教育「情報＋小学校」と「情報＋中高数学」、山口「建築Ⅰ」と「建築Ⅱ」、滋賀「面接型」と「文系型・理系型」など）
+            {
+                const sibKey = (k) => `${k.key}|${k.rawFac}|${k.sched}`;
+                const sibs = new Map();
+                kList.forEach(k => { const key = sibKey(k); if (!sibs.has(key)) sibs.set(key, []); sibs.get(key).push(k); });
+                const wayScore = (k, b) => {       // ベネの方式名が河合の名前に出てくるか（方式名なしは中立 0.5）
+                    prep(k);
+                    const w = b.wk || ''; if (!w) return 0.5;
+                    const wc = w.replace(GEN, '');
+                    if (hasTok(k.hk, w) || (wc && hasTok(k.hk, wc))) return 1;
+                    return /^[a-z0-9]+$/.test(wc || w) ? 0 : bag(wc || w, k.hk);
+                };
+                const deptScore = (k, b) => {      // ベネの学科名の文字が河合の学科名・学部名にどれだけ含まれるか
+                    prep(k);
+                    const d = nameKey(b.rawDept); if (!d) return 0.5;
+                    let ex = 0;   // 「デザ／地域創」の前半（デザ）が、河合の学科名の頭（デザイン）と合えば加点 → 同点の決め手
+                    const sg = nz(b.rawDept).split(/[\/\-]/).map(nameKey).filter(x => x.length >= 2);
+                    if (sg.length >= 2) { if (k.db === undefined) k.db = deptBase(k.rawDept); sg.slice(0, -1).forEach(x => { if (k.db && k.db.startsWith(x)) ex += 0.5; }); }
+                    return bag(d, k.dfull + k.fk) + ex;
+                };
+                const fit = (k, b) => wayScore(k, b) + deptScore(k, b);
+                kList.forEach(k0 => {
+                    const m = merged.get(k0.id);
+                    if (m.beneCodes.length < 2 || m.beneCodes.some(e => !e._b)) return;
+                    const free = (sibs.get(sibKey(k0)) || []).filter(s => s !== k0 && merged.get(s.id).beneCodes.length === 0);
+                    if (!free.length) return;
+                    const top = Math.max(...m.beneCodes.map(e => fit(k0, e._b)));
+                    [...m.beneCodes].forEach(e => {
+                        const cur = fit(k0, e._b);
+                        if (cur >= top - 1e-9) return;                                  // その行に一番合うコードは動かさない
+                        let best = null, bs = -1;
+                        free.forEach(s => {
+                            if (merged.get(s.id).beneCodes.length) return;               // すでに誰かが入った行には入れない
+                            if (facClass(s.rawFac) !== facClass(e._b.rawFac) || textClash(s, e._b)) return;
+                            const ws = wayScore(s, e._b), ds = deptScore(s, e._b);
+                            if (e._b.wk && ws < 0.3) return;
+                            if (ds < 0.5) return;
+                            if (ws + ds >= cur - 1e-9 && ws + ds > bs) { bs = ws + ds; best = s; }
+                        });
+                        if (!best) return;
+                        m.beneCodes.splice(m.beneCodes.indexOf(e), 1);
+                        const m2 = merged.get(best.id);
+                        m2.beneCodes.push(e); if (!m2.univAlt) m2.univAlt = e._b.univ;
+                    });
+                });
+            }
+            // (A) 似ている順に1対1
+            const pairs = [];
+            kLeft.forEach(k => bLeft.forEach(b => {
+                const fs = compat(k, b); if (!fs) return;
+                const ts = textScore(k, b); if (!ts) return;
+                pairs.push({ k, b, sc: fs + ts });
+            }));
+            pairs.sort((x, y) => y.sc - x.sc);
+            const usedK = new Set();
+            const link = (k, b, est) => {
+                const m = merged.get(k.id);
+                m.beneCodes.push({ code: b.codeBene, label: b.method.trim(), est: !!est });
+                if (!m.univAlt) m.univAlt = b.univ;
+                usedK.add(k); consumed.add(b);
+            };
+            pairs.forEach(p => { if (usedK.has(p.k) || consumed.has(p.b)) return; link(p.k, p.b, p.k.type !== '1' && p.k.type !== '2'); });   // 私大・短大は方式名の裏づけが弱いことがあるので「推定」と表示
+            // (B) 件数が同じなら順番に（国公立のみ）
+            const bucket = new Map();
+            const bs0 = bLeft.filter(b => !consumed.has(b)), ks0 = kLeft.filter(k => !usedK.has(k));
+            bs0.forEach(b => {
+                let top = null, topF = 0;
+                ks0.forEach(k => { const f = compat(k, b); if (f > topF) { topF = f; top = k; } });
+                if (!top || (top.type !== '1' && top.type !== '2')) return;
+                const key = `${top.key}|${top.rawFac}|${top.sched}`;
+                if (!bucket.has(key)) bucket.set(key, { ks: [], bs: [] });
+                bucket.get(key).bs.push(b);
+            });
+            bucket.forEach((v, key) => {
+                const [ukey, fac, sch] = key.split('|');
+                v.ks = ks0.filter(k => k.key === ukey && k.rawFac === fac && String(k.sched) === sch);
+                if (v.ks.length !== v.bs.length || v.ks.length > 8) return;
+                v.ks.sort((a, b) => Number(a.codeKawai5) - Number(b.codeKawai5));
+                v.bs.sort((a, b) => a.codeBene.localeCompare(b.codeBene));
+                v.ks.forEach((k, i) => link(k, v.bs[i], true));
+            });
+            // (D) 粒度の違い（国公立のみ）: ベネのコードが河合より粗いとき
+            //   D1) 同じ大学・学部・日程で、ベネの残りが1件・河合の残りが2件以上 → 河合の全行に「共有（推定）」で付ける（福島「後期」）
+            //   D2) ベネの残りが「文系」「理系」の2件だけなら、河合の学科名に 数学・理科・物理… があるものを理系、他を文系として付ける（福島「前期」）
+            {
+                const kRem = kList.filter(k => merged.get(k.id).beneCodes.length === 0 && (k.type === '1' || k.type === '2'));
+                const bRem = bLeft.filter(b => !consumed.has(b));
+                const bk = new Map();
+                bRem.forEach(b => {
+                    let top = null, topF = 0;
+                    kRem.forEach(k => { const f = compat(k, b); if (f > topF) { topF = f; top = k; } });
+                    if (!top) return;
+                    const key = `${top.key}|${top.rawFac}|${top.sched}`;
+                    if (!bk.has(key)) bk.set(key, []);
+                    bk.get(key).push(b);
+                });
+                const RIKEI = /数学|算数|理科|物理|化学|生物|地学|工学|技術|情報|科学/;
+                const share = (k, b) => {
+                    const m = merged.get(k.id);
+                    const e = { code: b.codeBene, label: b.method.trim(), est: true, shared: true };
+                    m.beneCodes.push(e); if (!m.univAlt) m.univAlt = b.univ; consumed.add(b);
+                };
+                bk.forEach((bs, key) => {
+                    const [ukey, fac, sch] = key.split('|');
+                    const ks = kRem.filter(k => k.key === ukey && k.rawFac === fac && String(k.sched) === sch && merged.get(k.id).beneCodes.length === 0);
+                    if (bs.length === 1 && ks.length >= 2) { ks.forEach(k => share(k, bs[0])); return; }
+                    if (bs.length === 2 && ks.length >= 2) {
+                        const bz = bs.find(b => /^文系型?$/.test(b.wk)), br = bs.find(b => /^理系型?$/.test(b.wk));
+                        if (!bz || !br) return;
+                        const rk = ks.filter(k => RIKEI.test(k.rawDept + k.method)), zk = ks.filter(k => !RIKEI.test(k.rawDept + k.method));
+                        if (!rk.length || !zk.length) return;
+                        rk.forEach(k => share(k, br)); zk.forEach(k => share(k, bz));
+                    }
+                });
+            }
+            beneOnly = beneOnly.filter(x => !(x._b && consumed.has(x._b)));
+
+            // (C) 配点・配分・傾斜だけが違う河合の行（山口「創成－機械系（配点１）」と「（配点２）」）は、ベネでは同じコード。
+            //     コードのない側に、同じ大学・学部・日程で学科名の基本が同じ行のコードを「共有」として付ける（国公立のみ）
+            {
+                const PT = /配点|配分|傾斜|ウエイト|ウェイト|パターン/;
+                const base = (k) => deptBase(k.rawDept).replace(/[a-z]?パタ[ー]?ン$/, '');   // 「Ａパターン」「Ｂパターン」は同じ学科（nameKey が長音を除くので「パタン」になる）
+                const byKey = new Map();
+                kList.forEach(k => { const key = `${k.key}|${k.rawFac}|${k.sched}`; if (!byKey.has(key)) byKey.set(key, []); byKey.get(key).push(k); });
+                kList.forEach(k => {
+                    const m = merged.get(k.id);
+                    if (m.beneCodes.length || (k.type !== '1' && k.type !== '2') || !PT.test(k.rawDept + k.method)) return;
+                    const src = (byKey.get(`${k.key}|${k.rawFac}|${k.sched}`) || [])
+                        .filter(s => s !== k && merged.get(s.id).beneCodes.length && PT.test(s.rawDept + s.method) && base(s) === base(k))
+                        .sort((a, b) => Number(a.codeKawai5) - Number(b.codeKawai5))[0];
+                    if (!src) return;
+                    merged.get(src.id).beneCodes.filter(e => !e.shared).forEach(e => m.beneCodes.push({ code: e.code, label: e.label, shared: true }));
+                    if (!m.univAlt) m.univAlt = merged.get(src.id).univAlt;
+                });
+            }
+        }
+        beneOnly.forEach(x => { delete x._b; });
+
         unifiedData = [...merged.values(), ...beneOnly];
         unifiedData.forEach(it => {
             it.beneCodes.sort((a, b) => a.code.localeCompare(b.code));   // 複数あるときはコード順
@@ -1051,7 +1340,7 @@
             const label = list.length >= 2 ? cleanLabel(c.label) : '';
             return `
             <div class="code-row">
-                <span class="code-left"><span class="code-tag tag-bene">ベネ</span>${label ? `<span class="code-sub">${esc(label)}</span>` : ''}</span>
+                <span class="code-left"><span class="code-tag tag-bene">ベネ</span>${label ? `<span class="code-sub">${esc(label)}</span>` : ''}${c.shared ? '<span class="code-sub" title="河合の複数の行で同じベネのコードを共有しています">共有</span>' : (c.est ? '<span class="code-sub" title="名前の似かたと件数から推定した対応です">推定</span>' : '')}</span>
                 <span class="code-val val-bene">${esc(c.code)}</span>
             </div>`;
         }).join('');
