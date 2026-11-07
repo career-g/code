@@ -1366,8 +1366,14 @@
             const pairs = [];
             kLeft.forEach(k => bLeft.forEach(b => {
                 const fs = compat(k, b); if (!fs) return;
-                const ts = textScore(k, b); if (!ts) return;
-                pairs.push({ k, b, sc: fs + ts + numAdj(k, b) });
+                let ts = textScore(k, b), numOnly = false;
+                if (!ts) {
+                    // 名前の似かたの手がかりがなくても、学科名が同じで方式名の数字（「Ｃ方式３教科」⇔「前期３」の 3）が合えば、弱い根拠として候補にする
+                    //   （学科名が「法」など1文字で文字の照合ができない場合など。点は低いので、文字の根拠がある組が先に結ばれる。必ず「推定」表示）
+                    if (numAdj(k, b) > 0 && nameScore(k.dk, b.dk) > 0) { ts = 0.8; numOnly = true; }
+                    else return;
+                }
+                pairs.push({ k, b, sc: fs + ts + numAdj(k, b), numOnly });
             }));
             pairs.sort((x, y) => y.sc - x.sc);
             const usedK = new Set();
@@ -1377,7 +1383,7 @@
                 if (!m.univAlt) m.univAlt = b.univ;
                 usedK.add(k); consumed.add(b);
             };
-            pairs.forEach(p => { if (usedK.has(p.k) || consumed.has(p.b)) return; link(p.k, p.b, p.k.type !== '1' && p.k.type !== '2'); });   // 私大・短大は方式名の裏づけが弱いことがあるので「推定」と表示
+            pairs.forEach(p => { if (usedK.has(p.k) || consumed.has(p.b)) return; link(p.k, p.b, p.numOnly || (p.k.type !== '1' && p.k.type !== '2')); });   // 私大・短大は方式名の裏づけが弱いことがあるので「推定」と表示
             // (B) 件数が同じなら順番に（国公立のみ）
             const bucket = new Map();
             const bs0 = bLeft.filter(b => !consumed.has(b)), ks0 = kLeft.filter(k => !usedK.has(k));
