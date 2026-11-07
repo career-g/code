@@ -746,6 +746,12 @@
         diag.ambiguous.forEach(a => add(`<b>${esc(a.bene)}</b>（ベネ）は、河合の大学が1つに決まりません。候補: ${a.names.map(esc).join(' / ')}<br>→ 次の1行を match_rules.csv に足してください: <code>大学,${esc(a.names[0])},${esc(a.bene)}</code>（河合の名前は候補から選ぶ）`));
         diag.guessed.forEach(g => add(`<b>${esc(g.bene)}</b>（ベネ）は候補が複数あり、短い名前の「${esc(g.picked)}」と推測しました（他の候補: ${g.names.filter(n => n !== g.picked).map(esc).join(' / ')}）。違っていたら <code>大学,河合の名前,${esc(g.bene)}</code> を足してください。`));
 
+        if (diag.kyoMismatch && diag.kyoMismatch.length) {
+            const L = diag.kyoMismatch;
+            add(`<b>共通テスト利用の有無が食い違って結ばれたもの（${L.length}件）</b>: 河合は共${L[0].m.kyo ? 'あり' : 'なし'}・ベネは共${L[0].c.bs === '共' ? 'あり' : 'なし'} のような組です。<br>` +
+                L.slice(0, 15).map(x => `${esc(x.m.univ)} ${esc(x.m.fac)}/${esc(x.m.dept)} ${esc(x.m.method)}（河合${esc(x.m.kawaiCode)}・河合${x.m.kyo ? '共あり' : '共なし'}） ⇔ ベネ${esc(x.c.code)}（${x.c.bs === '共' ? '共あり' : '共なし'}）`).join('<br>') +
+                (L.length > 15 ? `<br>…ほか ${L.length - 15}件` : ''));
+        }
         const panel = document.getElementById('rule-panel');
         if (!panel) return;
         if (!items.length) { panel.style.display = 'none'; return; }
@@ -1477,6 +1483,11 @@
         dataMap = {};
         unifiedData.forEach(item => { dataMap[item.id] = item; });
 
+        // 共通テスト利用の有無が河合とベネで食い違って結ばれた組（本来は起きないはず。起きていたら知らせる）
+        diag.kyoMismatch = [];
+        merged.forEach(m => m.beneCodes.forEach(c => {
+            if (!!m.kyo !== (c.bs === '共')) diag.kyoMismatch.push({ m, c });
+        }));
         buildRuleDiagnostics(diag, kUnivs, bUnivs, findKawaiUniv);
         document.getElementById("status-msg").style.display = "none";
         filterData();
