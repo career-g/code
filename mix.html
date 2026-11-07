@@ -441,6 +441,22 @@
             font-weight: 600;
         }
 
+        /* 河合・ベネの名前を並べて確認するカード */
+        .pair-card { align-items: stretch; }
+        .pair-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+        .pair-univ { font-size: 0.74rem; display: flex; align-items: center; gap: 3px; margin-bottom: 1px; }
+        .src-block { border-left: 3px solid #2563eb; padding: 1px 0 1px 6px; }
+        .src-block.src-bene { border-left-color: #ea580c; }
+        .src-block.src-none { opacity: 0.55; }
+        .src-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-family: monospace; font-size: 0.7rem; }
+        .src-names { font-size: 0.72rem; color: #0f172a; line-height: 1.4; word-break: break-all; margin-top: 1px; }
+        .src-note { font-size: 0.58rem; color: #64748b; font-family: system-ui, sans-serif; }
+        .src-flag { font-size: 0.58rem; font-weight: bold; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif; }
+        .name-diff { background: #fef3c7; outline: 1px solid #f59e0b; border-radius: 3px; padding: 0 2px; }
+        .pair-side { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+        .legend { font-size: 0.6rem; color: #64748b; margin-top: 4px; line-height: 1.5; }
+        .legend .name-diff { font-size: 0.6rem; }
+
         /* モーダル */
         #clip-modal {
             display: none;
@@ -570,6 +586,7 @@
         </div>
     </div>
 
+    <div class="legend" id="legend">青の枠＝河合塾／オレンジの枠＝ベネッセ（それぞれコードと 学部 / 学科 / 方式 を表示）。<span class="name-diff">黄色</span>＝学部名・学科名が河合と違って見えるもの（略称のこともあるので要確認）。「推定」「共有」＝名前の似かた等で結んだ対応で、目で確認してください。</div>
     <div id="status-msg">「code.csv」と「benecode.csv」を読み込んで統合しています...</div>
     <div class="table-container" id="result-container"></div>
 </div>
@@ -640,6 +657,8 @@
     // 検索用: 全角英数→半角, 小文字化
     const nz = (s) => String(s || '').normalize('NFKC').toLowerCase();
     const stripSpace = (s) => String(s || '').replace(/['\u3000\s]+/g, '');
+    // ベネ側の名前（確認用に画面へ出す）。コードと一緒に持たせる
+    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim() }; }
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
     // 大学名のキー（末尾の「大学」「大」だけ除去。「大学」を付け足さない）
@@ -1035,13 +1054,13 @@
                 id: b.id, univ: ki ? ki.name : b.univ, univAlt: ki ? b.univ : '',
                 fac: facName, dept: deptName,
                 method: b.method, type: ki ? ki.type : b.type, sched: b.sched, kawaiCode: '',
-                beneCodes: [{ code: b.codeBene, label: '' }],
+                beneCodes: [Object.assign({ code: b.codeBene, label: '' }, bInfo(b))],
                 _b: b
             };
         }
         const attach = (k, b) => {
             const m = merged.get(k.id);
-            const e = { code: b.codeBene, label: b.method.trim() };
+            const e = Object.assign({ code: b.codeBene, label: b.method.trim() }, bInfo(b));
             Object.defineProperty(e, '_b', { value: b, enumerable: false, writable: true });   // 後の見直し用（localStorage には保存しない）
             m.beneCodes.push(e);
             if (!m.univAlt) m.univAlt = b.univ;
@@ -1108,7 +1127,7 @@
         //  (A) 文字の含まれかた（略称・順序つき部分列・系/型を除いた一致）で似ているものを、似ている順に1対1で結ぶ
         //  (B) それでも残り、同じ大学・学部・日程で河合とベネの件数がぴったり同じなら、コード順に結ぶ（国公立のみ・「推定」と表示）
         {
-            const kLeft = kList.filter(k => merged.get(k.id).beneCodes.length === 0);
+            let kLeft = kList.filter(k => merged.get(k.id).beneCodes.length === 0);
             const bLeft = beneOnly.filter(x => x._b && univMap.has(x._b.univ)).map(x => x._b);
             const consumed = new Set();
             const prep = (k) => {
@@ -1174,7 +1193,7 @@
                     let ex = 0;   // 「デザ／地域創」の前半（デザ）が、河合の学科名の頭（デザイン）と合えば加点 → 同点の決め手
                     const sg = nz(b.rawDept).split(/[\/\-]/).map(nameKey).filter(x => x.length >= 2);
                     if (sg.length >= 2) { if (k.db === undefined) k.db = deptBase(k.rawDept); sg.slice(0, -1).forEach(x => { if (k.db && k.db.startsWith(x)) ex += 0.5; }); }
-                    return bag(d, k.dfull + k.fk) + ex;
+                    return bag(d, k.dfull || k.fk) + ex;   // 学部名は混ぜない（「医」が学部名に入っているだけで一致してしまうため）
                 };
                 const fit = (k, b) => wayScore(k, b) + deptScore(k, b);
                 kList.forEach(k0 => {
@@ -1195,13 +1214,22 @@
                             if (ds < 0.5) return;
                             if (ws + ds >= cur - 1e-9 && ws + ds > bs) { bs = ws + ds; best = s; }
                         });
-                        if (!best) return;
+                        if (!best) {
+                            // 行き先がなく、その行の名前にも方式名の手がかりがない（鳥取「医／医 兵庫枠」が「医（一般枠）」に付いていた等）→ 無理に付けず、ベネのみに戻す
+                            if ((k0.type === '1' || k0.type === '2') && e._b.wk && wayScore(k0, e._b) < 0.34) {
+                                m.beneCodes.splice(m.beneCodes.indexOf(e), 1);
+                                beneOnly.push(toBeneOnly(e._b, { fac: k0.rawFac }));
+                                bLeft.push(e._b);
+                            }
+                            return;
+                        }
                         m.beneCodes.splice(m.beneCodes.indexOf(e), 1);
                         const m2 = merged.get(best.id);
                         m2.beneCodes.push(e); if (!m2.univAlt) m2.univAlt = e._b.univ;
                     });
                 });
             }
+            kLeft = kList.filter(k => merged.get(k.id).beneCodes.length === 0);   // 組み替えで埋まった行を、空き行から外す
             // (A) 似ている順に1対1
             const pairs = [];
             kLeft.forEach(k => bLeft.forEach(b => {
@@ -1213,7 +1241,7 @@
             const usedK = new Set();
             const link = (k, b, est) => {
                 const m = merged.get(k.id);
-                m.beneCodes.push({ code: b.codeBene, label: b.method.trim(), est: !!est });
+                m.beneCodes.push(Object.assign({ code: b.codeBene, label: b.method.trim(), est: !!est }, bInfo(b)));
                 if (!m.univAlt) m.univAlt = b.univ;
                 usedK.add(k); consumed.add(b);
             };
@@ -1255,7 +1283,7 @@
                 const RIKEI = /数学|算数|理科|物理|化学|生物|地学|工学|技術|情報|科学/;
                 const share = (k, b) => {
                     const m = merged.get(k.id);
-                    const e = { code: b.codeBene, label: b.method.trim(), est: true, shared: true };
+                    const e = Object.assign({ code: b.codeBene, label: b.method.trim(), est: true, shared: true }, bInfo(b));
                     m.beneCodes.push(e); if (!m.univAlt) m.univAlt = b.univ; consumed.add(b);
                 };
                 bk.forEach((bs, key) => {
@@ -1287,7 +1315,7 @@
                         .filter(s => s !== k && merged.get(s.id).beneCodes.length && PT.test(s.rawDept + s.method) && base(s) === base(k))
                         .sort((a, b) => Number(a.codeKawai5) - Number(b.codeKawai5))[0];
                     if (!src) return;
-                    merged.get(src.id).beneCodes.filter(e => !e.shared).forEach(e => m.beneCodes.push({ code: e.code, label: e.label, shared: true }));
+                    merged.get(src.id).beneCodes.filter(e => !e.shared).forEach(e => m.beneCodes.push(Object.assign({}, e, { shared: true, est: undefined })));
                     if (!m.univAlt) m.univAlt = merged.get(src.id).univAlt;
                 });
             }
@@ -1322,6 +1350,66 @@
         if (Array.isArray(item.beneCodes)) return item.beneCodes;
         if (item.beneCodeDisplay && !item.beneCodeDisplay.startsWith('未設定')) return [{ code: item.beneCodeDisplay, label: '' }];
         return [];
+    }
+    // 学部名が「同じ・含む・略称（先頭が同じで順番どおり）」なら true。違って見えるときだけ黄色で目立たせる
+    const cmpKey = (s) => nz(s).replace(/[\s\u3000／\/－\-ー・･()（）]/g, '');
+    function facCompatible(a, b) {
+        const x = cmpKey(a), y = cmpKey(b);
+        if (!x || !y || x === y) return true;
+        const [sh, lg] = x.length <= y.length ? [x, y] : [y, x];
+        if (lg.includes(sh)) return true;
+        return sh.length >= 2 && sh.charAt(0) === lg.charAt(0) && isSubsequence(sh, lg);
+    }
+    // 学科名が「同じ・先頭/語尾が一致・略称・前半が一致」なら true。どれにも当たらないときだけ黄色（略称の場合もあるので「要確認」）
+    function deptCompatible(kd, bd) {
+        const SUF = /(学類|学科|学域|学系|コース|専攻|課程)$/;
+        const noParen = (t) => nz(t).replace(/[（(【][^）)】]*[）)】]/g, '');
+        const seg = (t) => { const p = noParen(t).split(/[\/\-－／]/); return p[p.length - 1]; };
+        const b = cmpKey(seg(bd)).replace(SUF, ''), kl = cmpKey(seg(kd)).replace(SUF, ''), kf = cmpKey(kd).replace(SUF, '');
+        if (!b || !kl || b === kl) return true;
+        const [sh, lg] = b.length <= kl.length ? [b, kl] : [kl, b];
+        if (lg.startsWith(sh)) return true;                                                   // 先頭一致（切り詰め）
+        if (sh.length >= 2 && lg.endsWith(sh)) return true;                                   // 語尾一致（「学校－中学国語」⇔「学校／国語」）
+        if (sh.length >= 2 && lg.includes(sh) && sh.length / lg.length >= 0.4) return true;   // 含む（長さが近いとき）
+        if (b.length >= 2 && isSubsequence(b, kf) && (kf.charAt(0) === b.charAt(0) || kl.charAt(0) === b.charAt(0))) return true;   // 略称
+        if (kl.length >= 2 && isSubsequence(kl, b) && kl.charAt(0) === b.charAt(0)) return true;
+        const kFirst = cmpKey(noParen(kd).split(/[\/\-－／]/)[0]);                              // 「生物／一般プ」の前半など（河合の頭の共通部分は除く）
+        return noParen(bd).split(/[\/\-－／]/).map(x => cmpKey(x).replace(SUF, '')).filter(x => x.length >= 2 && x !== kFirst)
+            .some(x => kf.includes(x) || (isSubsequence(x, kf) && x.charAt(0) === kf.charAt(0)));
+    }
+    // 河合・ベネそれぞれの「コード＋学部/学科/方式」を縦に並べる（人が見て対応を確かめるため）
+    function pairHtml(item) {
+        const kCode = kawaiCodeText(item), kHas = kCode !== NO_CODE;
+        const kBlock = kHas ? `
+            <div class="src-block src-kawai">
+                <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val val-kawai">${esc(kCode)}</span></div>
+                <div class="src-names"><span class="bold-fac">${esc(item.fac || '学部なし')}</span>${item.dept ? ` / <span class="normal-dept">${esc(item.dept)}</span>` : ''}${item.method ? ` <span class="sub-card-badge">${esc(item.method)}</span>` : ''}</div>
+            </div>` : `
+            <div class="src-block src-kawai src-none">
+                <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">河合に該当なし</span></div>
+            </div>`;
+        const list = beneCodesOf(item);
+        const bBlocks = list.length === 0 ? `
+            <div class="src-block src-bene src-none">
+                <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">ベネに該当なし</span></div>
+            </div>` : list.map(c => {
+            const hasNames = c.bf !== undefined || c.bd !== undefined;
+            const warn = hasNames && kHas && !facCompatible(item.fac, c.bf);
+            const warnD = hasNames && kHas && c.bd && !deptCompatible(item.dept, c.bd);
+            const flag = c.shared ? '<span class="src-flag" title="河合の複数の行で同じベネのコードを共有しています">共有</span>'
+                       : (c.est ? '<span class="src-flag" title="名前の似かたと件数から推定した対応です">推定</span>' : '');
+            const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
+            const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
+            const meth = c.bm || c.label;
+            const names = hasNames ? `<div class="src-names">${fac}${dept}${meth ? ` <span class="sub-card-badge">${esc(meth)}</span>` : ''}</div>`
+                                   : (meth ? `<div class="src-names"><span class="sub-card-badge">${esc(meth)}</span></div>` : '');
+            return `
+            <div class="src-block src-bene">
+                <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val val-bene">${esc(c.code)}</span>${flag}</div>
+                ${names}
+            </div>`;
+        }).join('');
+        return kBlock + bBlocks;
     }
     function beneCodesHtml(item) {
         const list = beneCodesOf(item);
@@ -1480,16 +1568,9 @@
                     const badgeHtml = item.method ? `<div class="sub-card-meta"><span class="sub-card-badge">${esc(item.method)}</span></div>` : '';
 
                     cardsHtml += `
-                        <div class="sub-card ${bgClass}">
-                            <div class="sub-card-code-area">
-                                ${kawaiRowHtml(item)}
-                                ${beneCodesHtml(item)}
-                                <button class="card-btn" onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
-                            </div>
-                            <div class="sub-card-content">
-                                <div class="sub-card-main">${mainStr}</div>
-                                ${badgeHtml}
-                            </div>
+                        <div class="sub-card pair-card ${bgClass}">
+                            <div class="pair-main">${pairHtml(item)}</div>
+                            <div class="pair-side"><button class="card-btn" onclick="event.stopPropagation(); addById('${item.id}')">保存</button></div>
                         </div>
                     `;
                 });
@@ -1643,16 +1724,12 @@
             const isLast = idx === savedList.length - 1;
 
             cardsHtml += `
-                <div class="sub-card ${bgClass}">
-                    <div class="sub-card-code-area">
-                        ${kawaiRowHtml(item)}
-                        ${beneCodesHtml(item)}
-                        <button class="sub-delete card-btn" onclick="confirmRemoveFromList(${idx})">削除</button>
+                <div class="sub-card pair-card ${bgClass}">
+                    <div class="pair-main">
+                        <div class="pair-univ">${typeBadgeHtml}<strong>${esc(item.univ)}</strong></div>
+                        ${pairHtml(item)}
                     </div>
-                    <div class="sub-card-content">
-                        <div class="sub-card-main">${mainStr}</div>
-                        ${item.method ? `<div class="sub-card-meta"><span class="sub-card-badge">${esc(item.method)}</span></div>` : ''}
-                    </div>
+                    <div class="pair-side"><button class="sub-delete card-btn" onclick="confirmRemoveFromList(${idx})">削除</button></div>
                     <div class="order-btn-group">
                         <button class="order-btn" onclick="moveSavedItem(${idx}, -1)" ${isFirst ? 'disabled' : ''}>▲</button>
                         <button class="order-btn" onclick="moveSavedItem(${idx}, 1)" ${isLast ? 'disabled' : ''}>▼</button>
