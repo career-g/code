@@ -1270,6 +1270,14 @@
                 if (fs === 0 && b.fk.length >= 3 && b.fk.charAt(0) === k.ffull.charAt(0) && isSubsequence(b.fk, k.ffull)) fs = 1;   // 「総合理Ⅲ」⊂「総合選抜＋理系Ⅲ」
                 return fs;
             };
+            // 方式名に含まれる数字（「Ｃ方式４教科」⇔「前期４」の 4）。合えば加点、食い違えば減点（同点のとき数字で正しい相手を選ぶ）
+            const numsOf = (t) => new Set(nz(t).match(/\d+/g) || []);
+            const numsCached = (o) => { if (o.nums === undefined) o.nums = numsOf(o.method); return o.nums; };
+            const numAdj = (k, b) => {
+                const kn = numsCached(k), bn = numsCached(b);
+                if (!kn.size || !bn.size) return 0;                    // どちらかに数字がなければ判断しない
+                return [...bn].some(n => kn.has(n)) ? 1 : -1;
+            };
             const textScore = (k, b) => {       // 学科名・方式名の似かた（0なら根拠なし）
                 const kd = k.hk, dl = lastSeg(b.mDept), wk = b.wk.replace(GEN, '');
                 let ts = 0;
@@ -1359,7 +1367,7 @@
             kLeft.forEach(k => bLeft.forEach(b => {
                 const fs = compat(k, b); if (!fs) return;
                 const ts = textScore(k, b); if (!ts) return;
-                pairs.push({ k, b, sc: fs + ts });
+                pairs.push({ k, b, sc: fs + ts + numAdj(k, b) });
             }));
             pairs.sort((x, y) => y.sc - x.sc);
             const usedK = new Set();
@@ -1385,6 +1393,14 @@
                 const [ukey, fac, sch] = key.split('|');
                 v.ks = ks0.filter(k => k.key === ukey && k.rawFac === fac && String(k.sched) === sch);
                 if (v.ks.length !== v.bs.length || v.ks.length > 8) return;
+                // 方式名の数字（科目数など）が全部そろっていて1対1に決まるなら、その数字で結ぶ。決まらなければコード順
+                const nk = (o) => [...numsCached(o)].sort().join(',');
+                const kKeys = v.ks.map(nk), bKeys = v.bs.map(nk);
+                const uniq = (a) => a.every(x => x) && new Set(a).size === a.length;
+                if (uniq(kKeys) && uniq(bKeys) && kKeys.every(x => bKeys.includes(x))) {
+                    v.ks.forEach((k, i) => link(k, v.bs[bKeys.indexOf(kKeys[i])], true));
+                    return;
+                }
                 v.ks.sort((a, b) => Number(a.codeKawai5) - Number(b.codeKawai5));
                 v.bs.sort((a, b) => a.codeBene.localeCompare(b.codeBene));
                 v.ks.forEach((k, i) => link(k, v.bs[i], true));
