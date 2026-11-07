@@ -652,7 +652,7 @@
     const nz = (s) => String(s || '').normalize('NFKC').toLowerCase();
     const stripSpace = (s) => String(s || '').replace(/['\u3000\s]+/g, '');
     // ベネ側の名前（確認用に画面へ出す）。コードと一緒に持たせる
-    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim(), bs: b.sched }; }
+    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim(), bs: b.sched, bk: b.sched === '共' && b.type !== '1' && b.type !== '2' }; }   // bk=共バッジを付けるか（国公立は付けない）
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 
@@ -748,8 +748,8 @@
 
         if (diag.kyoMismatch && diag.kyoMismatch.length) {
             const L = diag.kyoMismatch;
-            add(`<b>共通テスト利用の有無が食い違って結ばれたもの（${L.length}件）</b>: 河合は共${L[0].m.kyo ? 'あり' : 'なし'}・ベネは共${L[0].c.bs === '共' ? 'あり' : 'なし'} のような組です。<br>` +
-                L.slice(0, 15).map(x => `${esc(x.m.univ)} ${esc(x.m.fac)}/${esc(x.m.dept)} ${esc(x.m.method)}（河合${esc(x.m.kawaiCode)}・河合${x.m.kyo ? '共あり' : '共なし'}） ⇔ ベネ${esc(x.c.code)}（${x.c.bs === '共' ? '共あり' : '共なし'}）`).join('<br>') +
+            add(`<b>共通テスト利用の有無が食い違って結ばれたもの（${L.length}件）</b>: 河合は共${L[0].m.kyo ? 'あり' : 'なし'}・ベネは共${L[0].c.bk ? 'あり' : 'なし'} のような組です。<br>` +
+                L.slice(0, 15).map(x => `${esc(x.m.univ)} ${esc(x.m.fac)}/${esc(x.m.dept)} ${esc(x.m.method)}（河合${esc(x.m.kawaiCode)}・河合${x.m.kyo ? '共あり' : '共なし'}） ⇔ ベネ${esc(x.c.code)}（${x.c.bk ? '共あり' : '共なし'}）`).join('<br>') +
                 (L.length > 15 ? `<br>…ほか ${L.length - 15}件` : ''));
         }
         const panel = document.getElementById('rule-panel');
@@ -867,7 +867,8 @@
                 fac: fac && fac !== '学部なし' ? stripSpace(fac) : '',
                 dept: dept && dept !== '学科なし' ? stripSpace(dept) : '',
                 method, sched: GRP_TO_SCHED[grp] || '', grp, type,
-                kyo: nz(shortName).includes('共テ'),                  // 共通テスト利用か（学科短縮名に「共テ」）
+                // 共通テスト利用か: 学科短縮名に「共テ」または「共通テスト」があれば共。国公立（区分1・2）には「共」は付けない
+                kyo: type !== '1' && type !== '2' && /共テ|共通テスト/.test(nz(shortName)),
                 codeKawai5: String(kCode5).trim()
             });
         }
@@ -1486,7 +1487,7 @@
         // 共通テスト利用の有無が河合とベネで食い違って結ばれた組（本来は起きないはず。起きていたら知らせる）
         diag.kyoMismatch = [];
         merged.forEach(m => m.beneCodes.forEach(c => {
-            if (!!m.kyo !== (c.bs === '共')) diag.kyoMismatch.push({ m, c });
+            if (!!m.kyo !== !!c.bk) diag.kyoMismatch.push({ m, c });
         }));
         buildRuleDiagnostics(diag, kUnivs, bUnivs, findKawaiUniv);
         document.getElementById("status-msg").style.display = "none";
@@ -1559,7 +1560,7 @@
                        : (c.est ? '<span class="src-flag" title="名前の似かたと件数から推定した対応です">推定</span>' : '');
             const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
             const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
-            const isKyo = c.bs === '共';                                        // ベネは日程の列が「共」なら共通テスト利用
+            const isKyo = !!c.bk;                                        // ベネは日程の列が「共」なら共通テスト利用
             let meth = c.bm || c.label;
             if (isKyo) meth = meth.replace(/^共\s*/, '');                        // 先頭の「共」はバッジで示すので方式名からは外す
             const names = hasNames ? `<div class="src-names">${fac}${dept}${isKyo ? ' ' + KYO_BADGE : ''}${meth ? ` <span class="sub-card-badge">${esc(meth)}</span>` : ''}</div>`
