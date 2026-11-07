@@ -431,6 +431,13 @@
         .bold-fac { font-weight: bold; color: #0f172a; }
         .normal-dept { font-weight: normal; color: #475569; }
 
+        /* 共通テスト利用バッジ（青緑。河合の青・ベネのオレンジ・日程の背景色と重ならない色） */
+        .kyo-badge {
+            display: inline-block;
+            font-size: 0.58rem; font-weight: bold; line-height: 1.5;
+            color: #0f766e; background: #ccfbf1; border: 1px solid #5eead4;
+            border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif;
+        }
         .sub-card-badge {
             background: rgba(255, 255, 255, 0.75);
             border: 1px solid rgba(0,0,0,0.08);
@@ -645,7 +652,7 @@
     const nz = (s) => String(s || '').normalize('NFKC').toLowerCase();
     const stripSpace = (s) => String(s || '').replace(/['\u3000\s]+/g, '');
     // ベネ側の名前（確認用に画面へ出す）。コードと一緒に持たせる
-    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim() }; }
+    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim(), bs: b.sched }; }
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 
@@ -696,6 +703,7 @@
             const t = line.trim();
             if (!t || t.startsWith('#')) return;                 // 空行・「#」で始まるコメント行は無視
             const c = parseCSVLine(line);
+            if (c.every(x => !x.trim())) return;                  // 「,,,」だけの行（Excelで保存した空行）も空行として無視
             if (c[0] === '種別') return;                          // 見出し行
             const kind = RULE_KIND[c[0]];
             const kawai = (c[1] || '').trim(), bene = (c[2] || '').trim();
@@ -722,6 +730,7 @@
         const add = (html) => items.push(`<div class="rule-item">${html}</div>`);
         if (!RULES.loaded) add('「match_rules.csv」が見つからないため、読み替えルールなしで統合しました。');
         RULES.warnings.forEach(w => add(esc(w)));
+        diag.notes.forEach(n => add(esc(n)));
 
         // ルールの書き間違い
         const bNorm = new Set([...bUnivs.keys()].map(ruleKey));
@@ -827,6 +836,7 @@
         const kCol = {};
         kHeaders.forEach((h, idx) => { kCol[h] = idx; });
         const kCode5Key = Object.keys(kCol).find(k => k.includes('記入用大学コード'));
+        const kShortKey = Object.keys(kCol).find(k => k.includes('学科') && k.includes('短縮'));   // 「学科短縮名」の列（「共テ」があれば共通テスト利用）
 
         const kList = [];
         for (let i = 1; i < kLines.length; i++) {
@@ -842,6 +852,7 @@
             const method = row[kCol['日程方式名']] || '';
             const type = String(row[kCol['学校区分']] || '').trim();
             const grp = String(row[kCol['大学グループ区分']] || '').trim();
+            const shortName = kShortKey ? String(row[kCol[kShortKey]] || '') : '';
 
             kList.push({
                 id: 'k' + String(kCode5).trim(),          // 河合5桁コードは一意 → 安定したID
@@ -850,6 +861,7 @@
                 fac: fac && fac !== '学部なし' ? stripSpace(fac) : '',
                 dept: dept && dept !== '学科なし' ? stripSpace(dept) : '',
                 method, sched: GRP_TO_SCHED[grp] || '', grp, type,
+                kyo: nz(shortName).includes('共テ'),                  // 共通テスト利用か（学科短縮名に「共テ」）
                 codeKawai5: String(kCode5).trim()
             });
         }
@@ -900,6 +912,7 @@
 
         // 確認パネルに出す情報
         const diag = { ambiguous: [], guessed: [], notes: [] };
+        if (!kShortKey) diag.notes.push('code.csv に「学科短縮名」の列が見つからないため、河合側の「共」バッジは表示されません。');
         // 河合の大学名を、表記ゆれを吸収して引く（「名古屋工業」でも「名古屋工業大学」でも可）
         const kByNorm = new Map(); kList.forEach(k => { const n = ruleKey(k.univ); if (!kByNorm.has(n)) kByNorm.set(n, k.key); });
         const findKawaiUniv = (name) => kByNorm.has(ruleKey(name)) ? kByNorm.get(ruleKey(name)) : (kUnivs.has(univKey(name)) ? univKey(name) : undefined);
@@ -1053,7 +1066,7 @@
         kList.forEach(k => {
             merged.set(k.id, {
                 id: k.id, univ: k.univ, univAlt: '', fac: k.rawFac, dept: k.rawDept,
-                method: k.method, type: k.type, sched: k.sched, kawaiCode: k.codeKawai5, beneCodes: []
+                method: k.method, type: k.type, sched: k.sched, kyo: k.kyo, kawaiCode: k.codeKawai5, beneCodes: []
             });
             k.mKey = methodNorm(k.method);
         });
@@ -1490,12 +1503,13 @@
             .some(x => kf.includes(x) || (isSubsequence(x, kf) && x.charAt(0) === kf.charAt(0)));
     }
     // 河合・ベネそれぞれの「コード＋学部/学科/方式」を縦に並べる（人が見て対応を確かめるため）
+    const KYO_BADGE = '<span class="kyo-badge" title="共通テスト利用">共</span>';
     function pairHtml(item) {
         const kCode = kawaiCodeText(item), kHas = kCode !== NO_CODE;
         const kBlock = kHas ? `
             <div class="src-block src-kawai">
                 <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val val-kawai">${esc(kCode)}</span></div>
-                <div class="src-names"><span class="bold-fac">${esc(item.fac || '学部なし')}</span>${item.dept ? ` / <span class="normal-dept">${esc(item.dept)}</span>` : ''}${item.method ? ` <span class="sub-card-badge">${esc(item.method)}</span>` : ''}</div>
+                <div class="src-names"><span class="bold-fac">${esc(item.fac || '学部なし')}</span>${item.dept ? ` / <span class="normal-dept">${esc(item.dept)}</span>` : ''}${item.kyo ? ' ' + KYO_BADGE : ''}${item.method ? ` <span class="sub-card-badge">${esc(item.method)}</span>` : ''}</div>
             </div>` : `
             <div class="src-block src-kawai src-none">
                 <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">河合に該当なし</span></div>
@@ -1512,8 +1526,10 @@
                        : (c.est ? '<span class="src-flag" title="名前の似かたと件数から推定した対応です">推定</span>' : '');
             const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
             const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
-            const meth = c.bm || c.label;
-            const names = hasNames ? `<div class="src-names">${fac}${dept}${meth ? ` <span class="sub-card-badge">${esc(meth)}</span>` : ''}</div>`
+            const isKyo = c.bs === '共';                                        // ベネは日程の列が「共」なら共通テスト利用
+            let meth = c.bm || c.label;
+            if (isKyo) meth = meth.replace(/^共\s*/, '');                        // 先頭の「共」はバッジで示すので方式名からは外す
+            const names = hasNames ? `<div class="src-names">${fac}${dept}${isKyo ? ' ' + KYO_BADGE : ''}${meth ? ` <span class="sub-card-badge">${esc(meth)}</span>` : ''}</div>`
                                    : (meth ? `<div class="src-names"><span class="sub-card-badge">${esc(meth)}</span></div>` : '');
             return `
             <div class="src-block src-bene">
