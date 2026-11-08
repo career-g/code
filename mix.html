@@ -981,9 +981,10 @@
                 fac: fac && fac !== '学部なし' ? stripSpace(fac) : '',
                 dept: dept && dept !== '学科なし' ? stripSpace(dept) : '',
                 method, sched: GRP_TO_SCHED[grp] || '', grp, type,
-                // 共通テスト利用か: 学科短縮名に「共テ」「共通テスト」「テ前」「テ併」のどれかがあれば共。国公立（区分1・2）には「共」は付けない
-                //   ただし「マーケテ前」「インテ前」は共通テストではないので、その部分は除いて判定する
-                kyo: type !== '1' && type !== '2' && /共テ|共通テスト|テ前|テ併/.test(nz(shortName).replace(/マーケテ前|インテ前/g, '')),
+                // 共通テスト利用か: 大学グループ区分が「1」（河合のデータ上の共通テスト利用。ベネの日程「共」と同じもの）、
+                //   または学科短縮名に「共テ」「共通テスト」「テ前」「テ併」がある（ただし「マーケテ前」「インテ前」は除く）。
+                //   国公立（区分1・2）には「共」は付けない
+                kyo: type !== '1' && type !== '2' && (grp === '1' || /共テ|共通テスト|テ前|テ併/.test(nz(shortName).replace(/マーケテ前|インテ前/g, ''))),
                 codeKawai5: String(kCode5).trim()
             });
         }
@@ -1004,7 +1005,16 @@
             const mCode = cleanVal(row[3]), wCode = cleanVal(row[4]);
             const univ = cleanVal(row[6]);
             if (!uCode || !univ) continue;
-            const fac = cleanVal(row[7]), dept = cleanVal(row[8]);
+            let fac = cleanVal(row[7]), dept = cleanVal(row[8]);
+            // 短大（ベネのコードが 5・6 で始まる公立・私立短大）は、ベネでは「学部」の欄が空で「学科」の欄に名前が入る。
+            //   河合では同じものが「学部」の欄に入るので、ベネ側を河合に合わせて「学部」の欄へ寄せる。
+            //   （大学校=4・専門学校など=7〜9 は、河合もベネも「学科」の欄に入っていて同じ形なので、そのまま）
+            //   「商経／経済」のように「学部／学科」が1つの欄に並んでいるときは、「／」の前を学部・後ろを学科に分ける
+            if (!fac && dept && ['5', '6'].includes(uCode.charAt(0))) {
+                const parts = dept.split(/[／\/]/).map(x => x.trim());
+                if (parts.length >= 2 && parts[0] && parts[1]) { fac = parts[0]; dept = parts.slice(1).join('／'); }
+                else { fac = dept; dept = ''; }
+            }
             const sched = cleanVal(row[9]), way = cleanVal(row[10]);
             const rf = RULES.fac.apply(fac, univ), rd = RULES.dept.apply(dept, univ);   // 読み替えルール（学部・学科）。表示は元の名前のまま
 
@@ -1591,6 +1601,24 @@
                     if (!m.univAlt) m.univAlt = merged.get(src.id).univAlt;
                 });
             }
+        }
+        // 仕上げ: 看護学校・専門学校など、ベネが「学校名だけ」（学部も学科も空）の行は、学科名では照合できない。
+        //   その学校に河合1行・ベネ1行しか無いときだけ、取り違えようがないので結びつける（「推定」表示）
+        {
+            const kRowsByUniv = new Map(), bRowsByUniv = new Map();
+            merged.forEach(m => { if (!kRowsByUniv.has(m.univ)) kRowsByUniv.set(m.univ, []); kRowsByUniv.get(m.univ).push(m); });
+            beneOnly.forEach(x => { if (!bRowsByUniv.has(x.univ)) bRowsByUniv.set(x.univ, []); bRowsByUniv.get(x.univ).push(x); });
+            const absorbed = new Set();
+            bRowsByUniv.forEach((bs, u) => {
+                const ks = kRowsByUniv.get(u);
+                if (!ks || ks.length !== 1 || bs.length !== 1) return;
+                const m = ks[0], x = bs[0];
+                if (m.beneCodes.length || !x._b || x._b.mFac || x._b.mDept) return;
+                m.beneCodes.push(Object.assign({}, x.beneCodes[0], { est: true }));
+                if (!m.univAlt) m.univAlt = x.univAlt || '';
+                absorbed.add(x);
+            });
+            for (let i = beneOnly.length - 1; i >= 0; i--) if (absorbed.has(beneOnly[i])) beneOnly.splice(i, 1);
         }
         beneOnly.forEach(x => { delete x._b; });
 
