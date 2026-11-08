@@ -417,6 +417,11 @@
             font-size: 0.7rem;
         }
 
+        /* 保存済み（これ以上保存できない）: グレーで押せない */
+        button.card-btn.saved, button.card-btn.saved:disabled {
+            background: #e2e8f0; color: #64748b; border-color: #cbd5e1; cursor: default; box-shadow: none;
+        }
+
         .sub-card-content { flex-grow: 1; }
         
         .sub-card-main {
@@ -536,6 +541,32 @@
         .toast-btn-group-vertical { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .toast-btn-group-vertical button { width: 100%; padding: 9px 0; font-size: 0.85rem; font-weight: bold; box-sizing: border-box; border-radius: 6px; }
 
+        /* ベネを選ぶシート（画面の下から出る） */
+        #pick-modal {
+            position: fixed; inset: 0; z-index: 1500;
+            display: none; align-items: flex-end; justify-content: center;
+            background: rgba(15, 23, 42, 0.55);
+        }
+        #pick-modal.show { display: flex; }
+        .pick-sheet {
+            width: 100%; max-width: 560px; max-height: 82vh; overflow-y: auto; box-sizing: border-box;
+            background: #ffffff; border-radius: 16px 16px 0 0;
+            padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .pick-title { font-size: 0.92rem; font-weight: bold; color: #0f172a; }
+        .pick-sub { font-size: 0.66rem; color: #64748b; margin-top: -4px; }
+        .pick-kawai { border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 6px; background: #f8fafc; }
+        button.pick-opt {
+            display: block; width: 100%; text-align: left; box-sizing: border-box;
+            background: #fff7ed; color: #0f172a; border: 2px solid #fdba74; border-radius: 10px;
+            padding: 6px 8px; margin: 0; font-weight: normal; cursor: pointer;
+        }
+        button.pick-opt:hover, button.pick-opt:active { background: #ffedd5; border-color: #f97316; }
+        button.pick-opt .src-block { margin: 0; pointer-events: none; }
+        button.pick-cancel { width: 100%; padding: 9px 0; font-size: 0.85rem; margin: 2px 0 0; }
+
         .last-updated {
             position: fixed; bottom: 3px; right: 6px; font-size: 0.55rem; color: #94a3b8; opacity: 0.7; z-index: 800; pointer-events: none; font-family: monospace; user-select: none;
         }
@@ -652,6 +683,15 @@
     </div>
 </div>
 
+<div id="pick-modal" onclick="closePickModal()">
+    <div class="pick-sheet" onclick="event.stopPropagation()">
+        <div class="pick-title">どのベネを保存しますか？</div>
+        <div class="pick-sub" id="pick-sub"></div>
+        <div class="pick-kawai" id="pick-kawai"></div>
+        <div id="pick-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <button class="secondary pick-cancel" onclick="closePickModal()">キャンセル</button>
+    </div>
+</div>
 <div id="toast"></div>
 <div class="last-updated" id="file-updated-time"></div>
 
@@ -1616,9 +1656,9 @@
     }
     // 河合・ベネそれぞれの「コード＋学部/学科/方式」を縦に並べる（人が見て対応を確かめるため）
     const KYO_BADGE = '<span class="kyo-badge" title="共通テスト利用">共</span>';
-    function pairHtml(item) {
+    function kawaiBlockHtml(item) {
         const kCode = kawaiCodeText(item), kHas = kCode !== NO_CODE;
-        const kBlock = kHas ? `
+        return kHas ? `
             <div class="src-block src-kawai">
                 <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val val-kawai">${esc(kCode)}</span></div>
                 <div class="src-names"><span class="bold-fac">${esc(item.fac || '学部なし')}</span>${item.dept ? ` / <span class="normal-dept">${esc(item.dept)}</span>` : ''}${item.kyo ? ' ' + KYO_BADGE : ''}${item.method ? ` <span class="sub-card-badge">${esc(item.method)}</span>` : ''}</div>
@@ -1626,30 +1666,34 @@
             <div class="src-block src-kawai src-none">
                 <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">河合に該当なし</span></div>
             </div>`;
-        const list = beneCodesOf(item);
-        const bBlocks = list.length === 0 ? `
-            <div class="src-block src-bene src-none">
-                <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">ベネに該当なし</span></div>
-            </div>` : list.map(c => {
-            const hasNames = c.bf !== undefined || c.bd !== undefined;
-            const warn = hasNames && kHas && !facCompatible(item.fac, c.bf);
-            const warnD = hasNames && kHas && c.bd && !deptCompatible(item.dept, c.bd);
-            const flag = c.shared ? '<span class="src-flag" title="河合の複数の行で同じベネのコードを共有しています">共有</span>'
-                       : (c.est ? '<span class="src-flag" title="名前の似かたと件数から推定した対応です">推定</span>' : '');
-            const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
-            const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
-            const isKyo = !!c.bk;                                        // ベネは日程の列が「共」なら共通テスト利用
-            let meth = c.bm || c.label;
-            if (isKyo) meth = meth.replace(/^共\s*/, '');                        // 先頭の「共」はバッジで示すので方式名からは外す
-            const names = hasNames ? `<div class="src-names">${fac}${dept}${isKyo ? ' ' + KYO_BADGE : ''}${meth ? ` <span class="sub-card-badge">${esc(meth)}</span>` : ''}</div>`
-                                   : (meth ? `<div class="src-names"><span class="sub-card-badge">${esc(meth)}</span></div>` : '');
-            return `
+    }
+    function beneBlockHtml(item, c) {
+        const kHas = kawaiCodeText(item) !== NO_CODE;
+        const hasNames = c.bf !== undefined || c.bd !== undefined;
+        const warn = hasNames && kHas && !facCompatible(item.fac, c.bf);
+        const warnD = hasNames && kHas && c.bd && !deptCompatible(item.dept, c.bd);
+        const flag = c.shared ? '<span class="src-flag" title="河合の複数の行で同じベネのコードを共有しています">共有</span>'
+                   : (c.est ? '<span class="src-flag" title="名前の似かたと件数から推定した対応です">推定</span>' : '');
+        const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
+        const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
+        const isKyo = !!c.bk;                                        // ベネは日程の列が「共」なら共通テスト利用
+        let meth = c.bm || c.label;
+        if (isKyo) meth = meth.replace(/^共\s*/, '');                        // 先頭の「共」はバッジで示すので方式名からは外す
+        const names = hasNames ? `<div class="src-names">${fac}${dept}${isKyo ? ' ' + KYO_BADGE : ''}${meth ? ` <span class="sub-card-badge">${esc(meth)}</span>` : ''}</div>`
+                               : (meth ? `<div class="src-names"><span class="sub-card-badge">${esc(meth)}</span></div>` : '');
+        return `
             <div class="src-block src-bene">
                 <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val val-bene">${esc(c.code)}</span>${flag}</div>
                 ${names}
             </div>`;
-        }).join('');
-        return kBlock + bBlocks;
+    }
+    function pairHtml(item) {
+        const list = beneCodesOf(item);
+        const bBlocks = list.length === 0 ? `
+            <div class="src-block src-bene src-none">
+                <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">ベネに該当なし</span></div>
+            </div>` : list.map(c => beneBlockHtml(item, c)).join('');
+        return kawaiBlockHtml(item) + bBlocks;
     }
     function beneCodesHtml(item) {
         const list = beneCodesOf(item);
@@ -1809,7 +1853,7 @@
 
                     cardsHtml += `
                         <div class="sub-card pair-card ${bgClass}">
-                            <div class="pair-side"><button class="card-btn" onclick="event.stopPropagation(); addById('${item.id}')">保存</button></div>
+                            <div class="pair-side" data-save-id="${item.id}">${saveBtnInner(item)}</div>
                             <div class="pair-main">${pairHtml(item)}</div>
                         </div>
                     `;
@@ -1854,21 +1898,85 @@
         if (!isOpen) targetGroup.classList.add('open');
     }
 
+    // ---- 保存ボタンの状態 ----
+    //  河合1：ベネ1 …… 1回保存したら「保存済」で押せない
+    //  河合1：ベネ複数 …… 押すたびに、表示順で次のベネを1つ採用（保存リストには「河合1＋ベネ1」の形で入る）。全部保存したら押せない
+    //  保存リストから消すと、その分が戻ってボタンが復活する
+    function saveState(item) {
+        const list = beneCodesOf(item);
+        const total = Math.max(1, list.length);
+        const mine = savedList.filter(e => (e.srcId || e.id) === item.id);
+        // 旧バージョンで「ベネ全部まとめて」保存したもの（ベネが2つ以上入っている）は、全部保存済みとして扱う
+        if (mine.some(e => beneCodesOf(e).length > 1)) return { total, saved: total, remaining: [] };
+        const savedCodes = new Set(mine.map(e => (beneCodesOf(e)[0] || {}).code));
+        const remaining = list.length ? list.filter(c => !savedCodes.has(c.code)) : (mine.length ? [] : [null]);   // ベネなしの行は1回だけ
+        return { total, saved: total - remaining.length, remaining };
+    }
+    function saveBtnInner(item) {
+        const st = saveState(item);
+        const full = st.remaining.length === 0;
+        const label = full ? '保存済' : (st.total >= 2 ? `保存 ${st.saved}/${st.total}` : '保存');
+        return `<button class="card-btn${full ? ' saved' : ''}" ${full ? 'disabled' : ''} onclick="event.stopPropagation(); addById('${item.id}')">${label}</button>`;
+    }
+    // 画面を描き直さず、保存ボタンだけ最新の状態にする（検索結果の開閉やスクロール位置を崩さないため）
+    function refreshSaveButtons() {
+        document.querySelectorAll('.pair-side[data-save-id]').forEach(el => {
+            const item = dataMap[el.getAttribute('data-save-id')];
+            if (item) el.innerHTML = saveBtnInner(item);
+        });
+    }
+
     function addById(id) {
         const item = dataMap[id];
         if (!item) return;
-        if (savedList.some(i => i.id === item.id)) {
-            showToast("この項目はすでにリストに登録されています");
+        const st = saveState(item);
+        if (st.remaining.length === 0) {
+            showToast("この項目はすでに保存済みです");
+            refreshSaveButtons();
             return;
         }
+        // ベネが2つ以上残っているときは、どれを保存するか自分で選ぶ。残りが1つ（1:1や、1:2の2回目）なら、それを自動で採用
+        if (st.remaining.length >= 2) { openPickModal(item, st.remaining); return; }
+        saveEntry(item, st.remaining[0]);
+    }
+
+    // 保存リストに「河合1つ＋ベネ1つ」の形で追加する（pick が null ならベネなしの行）
+    function saveEntry(item, pick) {
         if (savedList.length >= 50) {
             showToast("保存リストは最大50件までです");
             return;
         }
-        savedList.push(item);
+        const st = saveState(item);
+        const entry = Object.assign({}, item, { srcId: item.id });
+        if (st.total >= 2 && pick) {
+            entry.id = item.id + '@' + pick.code;
+            entry.beneCodes = [pick];
+        }
+        savedList.push(entry);
         saveListToStorage();
-        showToast("リストに保存しました！");
+        showToast(st.total >= 2 && pick ? `保存しました（${st.saved + 1}/${st.total}・ベネ ${pick.code}）` : "リストに保存しました！");
         renderSavedList();
+    }
+
+    // ---- ベネを選ぶシート ----
+    function openPickModal(item, remaining) {
+        const st = saveState(item);
+        document.getElementById('pick-sub').textContent = `この河合には、ベネが ${st.total} 件あります（保存済 ${st.saved} 件）。保存するものをタップしてください。`;
+        document.getElementById('pick-kawai').innerHTML = kawaiBlockHtml(item);
+        document.getElementById('pick-list').innerHTML = remaining.map(c =>
+            `<button class="pick-opt" onclick="pickBene('${item.id}', '${esc(c.code)}')">${beneBlockHtml(item, c)}</button>`).join('');
+        document.getElementById('pick-modal').classList.add('show');
+    }
+    function closePickModal() {
+        document.getElementById('pick-modal').classList.remove('show');
+    }
+    function pickBene(id, code) {
+        const item = dataMap[id];
+        closePickModal();
+        if (!item) return;
+        const pick = saveState(item).remaining.find(c => c && c.code === code);
+        if (!pick) { refreshSaveButtons(); return; }       // すでに保存済みだった場合など
+        saveEntry(item, pick);
     }
 
     function moveSavedItem(index, dir) {
@@ -1938,6 +2046,7 @@
     }
 
     function renderSavedList() {
+        refreshSaveButtons();
         const modalContainer = document.getElementById("modal-clip-container");
         const footerLeftArea = document.getElementById("modal-footer-left-area");
         document.getElementById("cart-count").innerText = `${savedList.length}`;
