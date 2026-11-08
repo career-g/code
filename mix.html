@@ -718,9 +718,29 @@
         };
     }
 
+    // 「対象大学」つきのルールに対応した置き換え器。
+    //   対象大学を書いた行は、その大学のときだけ使う（先に試す）。書いていない行は全大学で使う。
+    //   （「３ベス」のように大学ごとに意味が違う略語は、対象大学つきで書く）
+    function makeScopedReplacer(rows) {
+        const common = makeReplacer(rows.filter(r => !r.scope));
+        const byScope = new Map();
+        rows.filter(r => r.scope).forEach(r => { const k = ruleKey(r.scope); if (!byScope.has(k)) byScope.set(k, []); byScope.get(k).push(r); });
+        const scoped = [...byScope.entries()].map(([scope, rs]) => ({ scope, rep: makeReplacer(rs) }));
+        return {
+            apply(text, univ) {
+                const u = ruleKey(univ || '');
+                if (u) for (const x of scoped) {
+                    if (u.includes(x.scope) || x.scope.includes(u)) { const r = x.rep.apply(text); if (r.hit) return Object.assign(r, { scoped: true }); }   // 「大東文化」⊂「大東文化大」
+                }
+                return common.apply(text);
+            },
+            unused() { return [...common.unused(), ...scoped.flatMap(x => x.rep.unused())]; }
+        };
+    }
+
     function emptyRules() {
         return { loaded: false, warnings: [], univ: new Map(), region: new Map(),
-                 fac: makeReplacer([]), dept: makeReplacer([]), method: makeReplacer([]) };
+                 fac: makeScopedReplacer([]), dept: makeScopedReplacer([]), method: makeScopedReplacer([]) };
     }
 
     function parseRules(text) {
@@ -736,7 +756,7 @@
             const kawai = (c[1] || '').trim(), bene = (c[2] || '').trim();
             if (!kind) { R.warnings.push(`${i + 1}行目: 種別「${c[0]}」が分かりません（大学・学部・学科・方式・地域のどれか）`); return; }
             if (!kawai || !bene) { R.warnings.push(`${i + 1}行目: 河合かベネッセの欄が空です`); return; }
-            const row = { kind, kawai, bene, line: i + 1 };
+            const row = { kind, kawai, bene, line: i + 1, scope: (c[4] || '').trim() };   // 5列目＝対象大学（省略可）
             if (kind === 'univ') {
                 const key = ruleKey(bene);
                 if (R.univ.has(key)) R.warnings.push(`${i + 1}行目: ベネ「${bene}」はすでに ${R.univ.get(key).line} 行目で指定済みです（先の行を採用）`);
@@ -745,7 +765,7 @@
                 R.region.set(nameKey(bene), kawai.split(/[\/／|｜]/).map(s => s.trim()).filter(Boolean));
             } else rows[kind].push(row);
         });
-        R.fac = makeReplacer(rows.fac); R.dept = makeReplacer(rows.dept); R.method = makeReplacer(rows.method);
+        R.fac = makeScopedReplacer(rows.fac); R.dept = makeScopedReplacer(rows.dept); R.method = makeScopedReplacer(rows.method);
         return R;
     }
 
@@ -766,7 +786,7 @@
             else if (!bNorm.has(ruleKey(r.bene))) add(`${r.line}行目（大学）: ベネに「${esc(r.bene)}」という大学がありません。`);
         });
         [['学部', 'fac'], ['学科', 'dept'], ['方式', 'method']].forEach(([label, key]) => {
-            RULES[key].unused().forEach(r => add(`${r.line}行目（${label}）: 「${esc(r.bene)}」→「${esc(r.kawai)}」は、どの行にも当てはまりませんでした（書き間違いかも）。`));
+            RULES[key].unused().forEach(r => add(`${r.line}行目（${label}）: 「${esc(r.bene)}」→「${esc(r.kawai)}」${r.scope ? `（対象: ${esc(r.scope)}）` : ''}は、どの行にも当てはまりませんでした（書き間違いかも）。`));
         });
 
         // 自動では大学名が決まらなかったもの → ルールを足してもらう
@@ -945,7 +965,7 @@
             if (!uCode || !univ) continue;
             const fac = cleanVal(row[7]), dept = cleanVal(row[8]);
             const sched = cleanVal(row[9]), way = cleanVal(row[10]);
-            const rf = RULES.fac.apply(fac), rd = RULES.dept.apply(dept);   // 読み替えルール（学部・学科）。表示は元の名前のまま
+            const rf = RULES.fac.apply(fac, univ), rd = RULES.dept.apply(dept, univ);   // 読み替えルール（学部・学科）。表示は元の名前のまま
 
             const raw10 = `${uCode.padStart(4, '0')}${fCode.padStart(2, '0')}${dCode.padStart(2, '0')}${mCode.slice(-1)}${wCode.slice(-1)}`;
             bList.push({
@@ -1148,8 +1168,9 @@
         bList.forEach(b => {
             const wayOnly = b.method.replace(/^[^ ]*\s?/, '');          // 「前 数学」→「数学」
             // 読み替えルール（方式）: 「共 プラＡ」→「共通テスト＋Ａ」。日程つきの全体 → 方式部分だけ の順に試す
-            let mr = RULES.method.apply(b.method);
-            if (!mr.hit) mr = RULES.method.apply(wayOnly);
+            let mr = RULES.method.apply(b.method, b.univ);
+            if (!mr.hit) mr = RULES.method.apply(wayOnly, b.univ);
+            b.ruled = !!mr.scoped;   // 「対象大学」つきのルールで方式名の意味が決まった行（仕上げの段階で、無関係な行と結ばないための目印。全大学共通のルールは推測を含むので対象外）
             b.mKey = (mr.hit ? methodNorm(mr.text) : methodNorm(wayOnly)) || (SCHED_FULL[b.sched] || '');
             const kKey = univMap.get(b.univ);
             b.fk = nameKey(b.fac); b.dk = nameKey(b.dept); b.dl = lastSeg(b.mDept); b.db = deptBase(b.mDept);
@@ -1427,6 +1448,9 @@
             const pairs = [];
             kLeft.forEach(k => bLeft.forEach(b => {
                 const fs = compat(k, b); if (!fs) return;
+                // ルールで方式名が決まっているベネの行は、同じ方式名の河合の行としか結ばない
+                //   （似た行が無いときに、「桐門の翼奨学金」など無関係な行へ当てずっぽうで結ぶのを防ぐ）
+                if (b.ruled && methodScore(k.mKey, b.mKey) < 2) return;
                 let ts = textScore(k, b), numOnly = false;
                 if (!ts) {
                     // 名前の似かたの手がかりがなくても、学科名が同じで方式名の数字（「Ｃ方式３教科」⇔「前期３」の 3）が合えば、弱い根拠として候補にする
