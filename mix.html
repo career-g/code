@@ -1822,12 +1822,24 @@
         let html = '';
         const isSingleUniv = (univNames.length === 1);
 
+        // 入力が大学名と100%一致する大学（「愛知」と入れて大学名が「愛知」）は、先頭に出して開いた状態にする。
+        //   「大学」の有無は区別しない。ベネ側の呼び名（名古屋工大 など）と一致する場合も同じ扱い。
+        const exactKey = (t) => nz(t || '').replace(/大学$/, '');
+        const qKey = exactKey(qUniv);
+        const exactSet = new Set();
+        if (qKey) {
+            univNames.forEach(name => {
+                if (exactKey(name) === qKey || univGrouped[name].items.some(it => it.univAlt && exactKey(it.univAlt) === qKey)) exactSet.add(name);
+            });
+            if (exactSet.size) univNames.sort((a, b) => (exactSet.has(b) ? 1 : 0) - (exactSet.has(a) ? 1 : 0));   // 一致したものを先頭へ（それ以外の順番は今まで通り）
+        }
+
         univNames.forEach((univName, index) => {
             const univData = univGrouped[univName];
             const univItems = univData.items;
             const schoolType = univData.type;
             
-            let isOpen = (qUniv && isSingleUniv) || (!qUniv && index === 0) || isSingleUniv;
+            let isOpen = exactSet.has(univName) || (qUniv && isSingleUniv) || (!qUniv && index === 0) || isSingleUniv;
 
             const facGrouped = {};
             univItems.forEach(item => {
@@ -1896,7 +1908,17 @@
         const targetGroup = document.getElementById(`univ-group-${index}`);
         const isOpen = targetGroup.classList.contains('open');
         document.querySelectorAll('.univ-group').forEach(group => group.classList.remove('open'));
-        if (!isOpen) targetGroup.classList.add('open');
+        if (!isOpen) {
+            targetGroup.classList.add('open');
+            scrollGroupToTop(targetGroup);    // 前に開いていた大学が閉じて位置がずれても、開いた大学を見失わないようにする
+        }
+    }
+    // 大学の見出しを、固定ヘッダーのすぐ下（画面の上部）に合わせる
+    function scrollGroupToTop(el) {
+        const hd = document.querySelector('header');
+        const offset = (hd ? hd.offsetHeight : 44) + 6;
+        const y = el.getBoundingClientRect().top + window.scrollY - offset;   // 閉じた後の位置で計算する
+        window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
     }
 
     // ---- 保存ボタンの状態 ----
