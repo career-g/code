@@ -247,9 +247,11 @@
             border-radius: 8px;
             margin-bottom: 6px;
             overflow: hidden;
+            overflow: clip;   /* hidden だと中の見出しが張り付かない（sticky が効かない）ので、clip にする。角丸で切る効果は同じ */
             box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
         .univ-header {
+            position: sticky; top: 0; z-index: 5;   /* 開いた大学の見出し（大学名）を、スクロールしても結果欄の上端に張り付かせる */
             padding: 7px 10px;
             background: #f8fafc;
             display: flex;
@@ -263,6 +265,7 @@
             transition: background 0.2s;
         }
         .univ-header:hover { background: #f1f5f9; }
+        .univ-group.open > .univ-header { box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }   /* 張り付いたとき、下の内容と区別がつくように */
         .univ-header-left {
             display: flex;
             align-items: center;
@@ -568,8 +571,13 @@
         button.pick-opt .src-block { margin: 0; pointer-events: none; }
         button.pick-cancel { width: 100%; padding: 9px 0; font-size: 0.85rem; margin: 2px 0 0; }
 
-        .last-updated {
-            position: fixed; bottom: 3px; right: 6px; font-size: 0.55rem; color: #94a3b8; opacity: 0.7; z-index: 800; pointer-events: none; font-family: monospace; user-select: none;
+        /* 版（更新日時）の表示: 右下に小さく・薄く。タップは素通り（邪魔にならない） */
+        #version-stamp {
+            position: fixed; right: 5px; bottom: calc(2px + env(safe-area-inset-bottom, 0px)); z-index: 900;
+            font-size: 0.52rem; line-height: 1; letter-spacing: 0.02em;
+            color: #94a3b8; opacity: 0.8; text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+            font-variant-numeric: tabular-nums; font-family: system-ui, -apple-system, sans-serif;
+            pointer-events: none; user-select: none; -webkit-user-select: none;
         }
 
         /* 読み込み中の画面（黒めの背景。読み込みが終わるとフェードアウトして通常画面に戻る） */
@@ -694,7 +702,8 @@
     </div>
 </div>
 <div id="toast"></div>
-<div class="last-updated" id="file-updated-time"></div>
+
+<div id="version-stamp" aria-hidden="true"></div>
 
 <script>
     let unifiedData = [];
@@ -702,10 +711,63 @@
     let dataMap = {};
 
     window.addEventListener("DOMContentLoaded", () => {
+        loadVersionStamp();       // 右下の更新日時（CSVの読み込みとは独立。失敗しても何も起きない）
         loadSavedListFromStorage();
         loadSearchConditions();
         loadBothCSVs();
     });
+
+    // ================= 版（更新日時）の表示 =================
+    //  GitHub Pages で公開しているときは、GitHub のAPIでこのHTMLの「最後にコミットされた日時」を取って右下に小さく出す。
+    //  取れないとき（GitHubで開いていない・APIの回数制限など）は、ファイルの最終更新日時（document.lastModified）を出す。
+    //  ※ APIは認証なしだと1時間に60回までなので、結果を10分間は端末に覚えておく。
+    function fmtStamp(d) {
+        const p2 = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}/${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    }
+    function showStamp(date, source) {
+        const el = document.getElementById('version-stamp');
+        if (!el || !date || isNaN(date)) return;
+        el.textContent = '更新 ' + fmtStamp(date);
+        el.title = source;
+    }
+    // 開いているURLから「持ち主・リポジトリ・ファイルのパス」を割り出す（GitHub Pages のURLのときだけ）
+    function githubRefFromLocation(loc) {
+        const m = (loc.hostname || '').match(/^([^.]+)\.github\.io$/);
+        if (!m) return null;
+        const owner = m[1];
+        const parts = (loc.pathname || '/').split('/').filter(Boolean);
+        const hasExt = (x) => /\.[A-Za-z0-9]+$/.test(x || '');
+        let repo, rest;
+        if (parts.length === 0 || (parts.length === 1 && hasExt(parts[0]))) { repo = loc.hostname; rest = parts; }   // owner.github.io 直下
+        else { repo = parts[0]; rest = parts.slice(1); }
+        if (!rest.length || !hasExt(rest[rest.length - 1])) rest = rest.concat('index.html');
+        return { owner, repo, path: rest.join('/') };
+    }
+    async function loadVersionStamp() {
+        try {
+            const lm = new Date(document.lastModified);
+            if (!isNaN(lm)) showStamp(lm, 'ファイルの最終更新（配信元の情報）');          // まず手元の情報で即表示
+            const ref = githubRefFromLocation(location);
+            if (!ref) return;
+            const key = `mix_stamp:${ref.owner}/${ref.repo}/${ref.path}`;
+            try {
+                const c = JSON.parse(localStorage.getItem(key) || 'null');
+                if (c && Date.now() - c.t < 10 * 60 * 1000) { showStamp(new Date(c.iso), 'GitHub の最終コミット日時'); return; }
+            } catch (e) { /* 覚えていない場合は取りに行く */ }
+            const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+            const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 6000);
+            const res = await fetch(`https://api.github.com/repos/${ref.owner}/${ref.repo}/commits?path=${encodeURIComponent(ref.path)}&per_page=1`,
+                { headers: { 'Accept': 'application/vnd.github+json' }, signal: ctl ? ctl.signal : undefined });
+            clearTimeout(timer);
+            if (!res.ok) return;                                                       // 回数制限など → ファイルの更新日時のまま
+            const list = await res.json();
+            const iso = list && list[0] && list[0].commit && (list[0].commit.committer || list[0].commit.author || {}).date;
+            if (!iso) return;
+            showStamp(new Date(iso), 'GitHub の最終コミット日時');
+            try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), iso })); } catch (e) { /* 保存できなくても表示はできている */ }
+        } catch (e) { /* 表示は飾りなので、失敗しても何もしない */ }
+    }
 
     // ベネッセの学校区分コード(大学コード先頭1桁) → 河合の学校区分コードへ変換
     // 河合: 1国 2公 3私 4国公立短大 5私立短大 6大学校 8専門学校等
@@ -1935,18 +1997,28 @@
     function toggleUnivGroup(index) {
         const targetGroup = document.getElementById(`univ-group-${index}`);
         const isOpen = targetGroup.classList.contains('open');
+        // 閉じるとき: 見出しが上に張り付いている（中を読み進めている）なら、閉じたあとも見出しを見失わないように合わせる
+        const box = document.getElementById('result-container');
+        const wasStuck = isOpen && box && targetGroup.getBoundingClientRect().top < box.getBoundingClientRect().top - 1;
         document.querySelectorAll('.univ-group').forEach(group => group.classList.remove('open'));
         if (!isOpen) {
             targetGroup.classList.add('open');
             scrollGroupToTop(targetGroup);    // 前に開いていた大学が閉じて位置がずれても、開いた大学を見失わないようにする
+        } else if (wasStuck) {
+            scrollGroupToTop(targetGroup);
         }
     }
-    // 大学の見出しを、固定ヘッダーのすぐ下（画面の上部）に合わせる
+    // 大学の見出しを、結果欄（スクロールする枠）の上端に合わせる。
+    //   ※ 画面全体ではなく「結果欄」がスクロールするので、結果欄の scrollTop を動かす
     function scrollGroupToTop(el) {
+        const box = document.getElementById('result-container');
+        if (!box) return;
+        box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top;   // 開閉のあとの位置で計算する
+        // 結果欄そのものが固定ヘッダーの下に隠れているときは、画面全体も少しだけ動かして見えるようにする
         const hd = document.querySelector('header');
-        const offset = (hd ? hd.offsetHeight : 44) + 6;
-        const y = el.getBoundingClientRect().top + window.scrollY - offset;   // 閉じた後の位置で計算する
-        window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+        const limit = (hd ? hd.offsetHeight : 44) + 4;
+        const top = box.getBoundingClientRect().top;
+        if (top < limit) window.scrollBy(0, top - limit);
     }
 
     // ---- 保存ボタンの状態 ----
