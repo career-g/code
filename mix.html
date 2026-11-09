@@ -571,6 +571,9 @@
         button.pick-opt .src-block { margin: 0; pointer-events: none; }
         button.pick-cancel { width: 100%; padding: 9px 0; font-size: 0.85rem; margin: 2px 0 0; }
 
+        /* コード検索で一致した部分（入力したコードで始まるコード）を黄色く目立たせる */
+        .code-val.code-hit { background: #fef08a; border-radius: 3px; box-shadow: 0 0 0 2px #fef08a; }
+
         /* 版（更新日時）の表示: 右下に小さく・薄く。タップは素通り（邪魔にならない） */
         #version-stamp {
             position: fixed; right: 5px; bottom: calc(2px + env(safe-area-inset-bottom, 0px)); z-index: 900;
@@ -630,6 +633,10 @@
         </div>
         <div class="search-body" id="search-body">
             <div class="search-grid">
+                <div class="search-field" style="grid-column: 1 / -1;">
+                    <label>コード番号（河合・ベネッセどちらでもOK／3桁以上）</label>
+                    <input type="text" id="s-code" inputmode="numeric" autocomplete="off" placeholder="例: 52385 　または　 3269-01-0103" oninput="saveAndFilter()">
+                </div>
                 <div class="search-field">
                     <label>大学名</label>
                     <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
@@ -1747,18 +1754,20 @@
     }
     // 河合・ベネそれぞれの「コード＋学部/学科/方式」を縦に並べる（人が見て対応を確かめるため）
     const KYO_BADGE = '<span class="kyo-badge" title="共通テスト利用">共</span>';
-    function kawaiBlockHtml(item) {
+    // hl=true のとき（検索結果のカード）、コード検索で入力された数字で始まるコードを黄色くする
+    const isCodeHit = (code, hl) => !!(hl && codeQuery && String(code).replace(/\D/g, '').startsWith(codeQuery));
+    function kawaiBlockHtml(item, hl) {
         const kCode = kawaiCodeText(item), kHas = kCode !== NO_CODE;
         return kHas ? `
             <div class="src-block src-kawai">
-                <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val val-kawai">${esc(kCode)}</span></div>
+                <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val val-kawai${isCodeHit(kCode, hl) ? ' code-hit' : ''}">${esc(kCode)}</span></div>
                 <div class="src-names"><span class="bold-fac">${esc(item.fac || '学部なし')}</span>${item.dept ? ` / <span class="normal-dept">${esc(item.dept)}</span>` : ''}${item.kyo ? ' ' + KYO_BADGE : ''}${item.method ? ` <span class="sub-card-badge">${esc(item.method)}</span>` : ''}</div>
             </div>` : `
             <div class="src-block src-kawai src-none">
                 <div class="src-head"><span class="code-tag tag-kawai">河合</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">河合に該当なし</span></div>
             </div>`;
     }
-    function beneBlockHtml(item, c) {
+    function beneBlockHtml(item, c, hl) {
         const kHas = kawaiCodeText(item) !== NO_CODE;
         const hasNames = c.bf !== undefined || c.bd !== undefined;
         const warn = hasNames && kHas && !facCompatible(item.fac, c.bf);
@@ -1774,17 +1783,17 @@
                                : (meth ? `<div class="src-names"><span class="sub-card-badge">${esc(meth)}</span></div>` : '');
         return `
             <div class="src-block src-bene">
-                <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val val-bene">${esc(c.code)}</span>${flag}</div>
+                <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val val-bene${isCodeHit(c.code, hl) ? ' code-hit' : ''}">${esc(c.code)}</span>${flag}</div>
                 ${names}
             </div>`;
     }
-    function pairHtml(item) {
+    function pairHtml(item, hl) {
         const list = beneCodesOf(item);
         const bBlocks = list.length === 0 ? `
             <div class="src-block src-bene src-none">
                 <div class="src-head"><span class="code-tag tag-bene">ベネ</span><span class="code-val code-none">${NO_CODE}</span><span class="src-note">ベネに該当なし</span></div>
-            </div>` : list.map(c => beneBlockHtml(item, c)).join('');
-        return kawaiBlockHtml(item) + bBlocks;
+            </div>` : list.map(c => beneBlockHtml(item, c, hl)).join('');
+        return kawaiBlockHtml(item, hl) + bBlocks;
     }
     function beneCodesHtml(item) {
         const list = beneCodesOf(item);
@@ -1834,6 +1843,7 @@
 
     function saveAndFilter() {
         const conditions = {
+            code: document.getElementById("s-code").value,
             type: document.getElementById("s-type").value,
             univ: document.getElementById("s-univ").value,
             fac: document.getElementById("s-fac").value,
@@ -1849,6 +1859,7 @@
             const saved = localStorage.getItem("mix_search_conditions");
             if (saved) {
                 const c = JSON.parse(saved);
+                if (c.code !== undefined) document.getElementById("s-code").value = c.code;
                 if (c.type !== undefined) document.getElementById("s-type").value = c.type;
                 if (c.univ !== undefined) document.getElementById("s-univ").value = c.univ;
                 if (c.fac !== undefined) document.getElementById("s-fac").value = c.fac;
@@ -1858,9 +1869,15 @@
         } catch (e) {}
     }
 
+    // コード検索で入力された数字（カードで一致したコードを黄色くするために覚えておく）
+    let codeQuery = '';
+
     function filterData() {
         if (unifiedData.length === 0) return;
 
+        const codeRaw = document.getElementById("s-code").value.trim();
+        const qCode = nz(codeRaw).replace(/[^0-9]/g, '');       // 「3269-01-0103」でも「3269010103」でも同じ。全角数字もOK
+        codeQuery = qCode;
         const qType = document.getElementById("s-type").value;
         const qUniv = nz(document.getElementById("s-univ").value.trim());
         const qFac = nz(document.getElementById("s-fac").value.trim());
@@ -1870,14 +1887,30 @@
         const countBox = document.getElementById("match-count-box");
         const container = document.getElementById("result-container");
 
-        if (!qType && !qUniv && !qFac && !qDept && !qMethod) {
+        if (!qType && !qUniv && !qFac && !qDept && !qMethod && !codeRaw) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">統合データ全 ${unifiedData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍 大学名などを入力して検索してください（例: 名古屋、名古屋工大）</div>`;
+            container.innerHTML = `<div class="guide-msg">🔍 大学名などを入力して検索してください（例: 名古屋、名古屋工大）<br>コード番号（河合・ベネッセ）からも探せます</div>`;
+            return;
+        }
+        if (codeRaw && qCode.length < 3) {      // 1〜2桁だと大量にヒットして重くなるので、3桁以上から
+            countBox.innerHTML = `<span>コード番号</span><span class="highlight-count">3桁以上で検索</span>`;
+            container.innerHTML = `<div class="guide-msg">🔢 コード番号は3桁以上入力してください（例: 52385、3269-01-0103）</div>`;
             return;
         }
 
+        // コード検索: 河合の5桁コード、またはベネのコード（先頭から一致）。ハイフンの有無は問わない。
+        //   5桁ちょうどで河合のコードと一致するものがあれば、河合のそのコードだけを対象にする（ベネの先頭5桁との偶然の一致を除く）
+        const exactKawai = qCode.length === 5 && unifiedData.some(it => it.kawaiCode === qCode);
+        const codeMatch = (item) => {
+            if (!qCode) return true;
+            if (exactKawai) return item.kawaiCode === qCode;
+            if (item.kawaiCode && String(item.kawaiCode).startsWith(qCode)) return true;
+            return item.beneCodes.some(c => String(c.code).replace(/\D/g, '').startsWith(qCode));
+        };
+
         const filtered = unifiedData.filter(item => {
             if (qType && item.type !== qType) return false;
+            if (!codeMatch(item)) return false;
             if (qUniv && !item.sUniv.includes(qUniv)) return false;
             if (qFac && !item.sFac.includes(qFac)) return false;
             if (qDept && !item.sDept.includes(qDept)) return false;
@@ -1929,7 +1962,8 @@
             const univItems = univData.items;
             const schoolType = univData.type;
             
-            let isOpen = exactSet.has(univName) || (qUniv && isSingleUniv) || (!qUniv && index === 0) || isSingleUniv;
+            //   大学名もコードも入れていない検索（学部名だけ等）のときだけ、先頭の大学を開いておく。コード検索で複数の大学に当たったときは開かない
+            let isOpen = exactSet.has(univName) || (qUniv && isSingleUniv) || (!qUniv && !codeQuery && index === 0) || isSingleUniv;
 
             const facGrouped = {};
             univItems.forEach(item => {
@@ -1957,7 +1991,7 @@
                     cardsHtml += `
                         <div class="sub-card pair-card ${bgClass}">
                             <div class="pair-side" data-save-id="${item.id}">${saveBtnInner(item)}</div>
-                            <div class="pair-main">${pairHtml(item)}</div>
+                            <div class="pair-main">${pairHtml(item, true)}</div>
                         </div>
                     `;
                 });
