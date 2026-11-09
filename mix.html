@@ -246,10 +246,12 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             margin-bottom: 6px;
+            overflow: hidden;
+            overflow: clip;   /* hidden だと中の見出しが張り付かない（sticky が効かない）ので、clip にする。角丸で切る効果は同じ */
             box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
         .univ-header {
-            position: sticky; top: 0; z-index: 5;   /* 開いた大学の見出し（大学名）を、スクロールしても結果欄の上端に張り付かせる */
+            position: sticky; top: 1px; z-index: 5;   /* 開いた大学の見出し（大学名）を、スクロールしても結果欄の上端に張り付かせる（上に1pxあけて、枠の上の線を出す） */
             padding: 7px 10px;
             background: #f8fafc;
             display: flex;
@@ -261,10 +263,11 @@
             color: #0f172a;
             user-select: none;
             transition: background 0.2s;
-            border-top: 1px solid var(--border-color);
         }
         .univ-header:hover { background: #f1f5f9; }
-        .univ-group.open > .univ-header { box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }   /* 張り付いたとき、下の内容と区別がつくように */
+        /* 張り付いたとき: ①枠の上の線が画面の外に出てしまうので、見出し自身の上に線（-1pxの影）を引く（張り付いていないときは枠の線と重なって見分けがつかない）
+                          ②下の内容と区別がつくように、下に薄い影 */
+        .univ-group.open > .univ-header { box-shadow: 0 -1px 0 0 var(--border-color), 0 1px 3px rgba(15, 23, 42, 0.12); }
         .univ-header-left {
             display: flex;
             align-items: center;
