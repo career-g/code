@@ -557,6 +557,56 @@
             border-radius: 6px;
         }
 
+        /* ---- 開いた大学の見出し（大学名）を、スクロールしても結果欄の上端に張り付かせる ---- */
+        .univ-group { overflow: clip; }   /* 上の overflow: hidden のままだと、中の見出しが張り付かない（sticky が効かない） */
+        .univ-header { position: sticky; top: 1px; z-index: 5; }   /* 上に1pxあけて、枠の上の線を出す */
+        /* 張り付いたとき: ①枠の上の線は画面の外へ出てしまうので、見出し自身の上に線（-1pxの影）を引く／②下の内容と区別がつく薄い影 */
+        .univ-group.open > .univ-header { box-shadow: 0 -1px 0 0 var(--border-color), 0 1px 3px rgba(15, 23, 42, 0.12); }
+
+        /* ---- 共通テスト利用バッジ（青緑。目立ちすぎない） ---- */
+        .kyo-badge {
+            display: inline-block; font-size: 0.58rem; font-weight: bold; line-height: 1.5;
+            color: #0f766e; background: #ccfbf1; border: 1px solid #5eead4;
+            border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif; margin-right: 2px;
+        }
+
+        /* ---- コード検索で一致したコードを黄色く ---- */
+        .sub-card-code.code-hit { background: #fef08a; border-radius: 3px; box-shadow: 0 0 0 2px #fef08a; }
+
+        /* ---- 保存・削除ボタン: どれも同じ幅。保存済みは押せないグレー ---- */
+        .sub-card-code-area button { width: 5em; padding: 3px 0; text-align: center; box-sizing: border-box; }
+        button.save-btn.saved, button.save-btn.saved:hover, button.save-btn:disabled {
+            background: #e2e8f0; color: #64748b; border: 1px solid #cbd5e1; cursor: default;
+        }
+
+        /* ---- 版（HTMLの最終更新日時）の表示: 右下に小さく・薄く。既存の「Up:」（CSVの更新）の1行上 ---- */
+        #version-stamp {
+            position: fixed; right: 6px; bottom: calc(13px + env(safe-area-inset-bottom, 0px)); z-index: 800;
+            font-size: 0.52rem; line-height: 1; color: #94a3b8; opacity: 0.8; text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+            font-variant-numeric: tabular-nums; font-family: system-ui, -apple-system, sans-serif;
+            pointer-events: none; user-select: none; -webkit-user-select: none;
+        }
+
+        /* ---- 読み込み中の画面（黒めの背景。読み込みが終わるとフェードアウトして通常画面に戻る） ---- */
+        #loading-overlay {
+            position: fixed; inset: 0; z-index: 99999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+            background: #0b0e15; color: #e5e7eb;
+            font-family: system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+            opacity: 1; transition: opacity 0.35s ease;
+        }
+        #loading-overlay.done { opacity: 0; pointer-events: none; }
+        #loading-overlay .ld-spinner {
+            width: 46px; height: 46px; border-radius: 50%;
+            border: 4px solid rgba(255,255,255,0.14); border-top-color: #a78bfa;
+            animation: ld-spin 0.9s linear infinite;
+        }
+        #loading-overlay .ld-title { font-size: 1.05rem; font-weight: bold; letter-spacing: 0.05em; }
+        #loading-overlay .ld-step { font-size: 0.78rem; color: #9ca3af; min-height: 1.2em; text-align: center; padding: 0 20px; }
+        #loading-overlay .ld-bar { width: 200px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.12); overflow: hidden; }
+        #loading-overlay .ld-bar > div { height: 100%; width: 0%; background: #a78bfa; transition: width 0.3s ease; }
+        @keyframes ld-spin { to { transform: rotate(360deg); } }
+
         .last-updated {
             position: fixed;
             bottom: 3px;
@@ -572,6 +622,13 @@
     </style>
 </head>
 <body>
+
+<div id="loading-overlay" role="status" aria-live="polite">
+    <div class="ld-spinner"></div>
+    <div class="ld-title">読み込み中…</div>
+    <div class="ld-bar"><div id="loading-bar"></div></div>
+    <div class="ld-step" id="loading-step">準備しています</div>
+</div>
 
 <header>
     <div class="header-title-group">
@@ -594,6 +651,10 @@
         </div>
         <div class="search-body" id="search-body">
             <div class="search-grid">
+                <div class="search-field" style="grid-column: 1 / -1;">
+                    <label>コード番号（5桁／3桁以上で検索）</label>
+                    <input type="text" id="s-code" inputmode="numeric" autocomplete="off" placeholder="例: 52385" oninput="saveAndFilter()">
+                </div>
                 <div class="search-field">
                     <label>大学名</label>
                     <input type="text" id="s-univ" placeholder="例: 名古屋" oninput="saveAndFilter()">
@@ -660,6 +721,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="version-stamp" aria-hidden="true"></div>
 <div class="last-updated" id="file-updated-time"></div>
 
 <script>
@@ -668,13 +730,38 @@
     let dataMap = {};
 
     window.addEventListener("DOMContentLoaded", () => {
+        loadVersionStamp();       // 右下の更新日時（CSVの読み込みとは独立。失敗しても何も起きない）
         loadSavedListFromStorage();
         loadSearchConditions();
         loadGitHubCSV();
     });
 
+    // 全角半角・大文字小文字をそろえる（コード検索の全角数字、短縮名の判定に使う）
+    const nz = (t) => String(t == null ? '' : t).normalize('NFKC').toLowerCase();
+
+    // ---- 読み込み画面 ----
+    // 画面を1回描画させてから重い処理に入る（これをしないと、読み込み画面が出る前に処理が始まって固まって見える）
+    const nextPaint = () => new Promise(r => {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(r, 0));
+        setTimeout(r, 120);   // 裏タブなどで描画が止まっていても先へ進める
+    });
+    async function setLoading(text, percent) {
+        const t = document.getElementById('loading-step'), b = document.getElementById('loading-bar');
+        if (t) t.textContent = text;
+        if (b) b.style.width = percent + '%';
+        await nextPaint();
+    }
+    function hideLoading() {
+        const o = document.getElementById('loading-overlay');
+        if (!o) return;
+        const b = document.getElementById('loading-bar'); if (b) b.style.width = '100%';
+        o.classList.add('done');                              // フェードアウト
+        setTimeout(() => { o.style.display = 'none'; }, 400);
+    }
+
     async function loadGitHubCSV() {
         let cacheVersion = Date.now();
+        await setLoading('「code.csv」の更新日時を確認中…', 10);
         try {
             const headResponse = await fetch('./code.csv', { method: 'HEAD', cache: 'no-store' });
             const lastModifiedHeader = headResponse.headers.get('Last-Modified');
@@ -696,14 +783,18 @@
         }
 
         try {
+            await setLoading('「code.csv」を読み込み中…', 35);
             const csvResponse = await fetch(`./code.csv?v=${cacheVersion}`);
             if (!csvResponse.ok) throw new Error("「code.csv」が見つかりませんでした。");
             const text = await csvResponse.text();
+            await setLoading('データを整理しています…（少し時間がかかります）', 70);
             parseCSV(text);
         } catch (err) {
             document.getElementById("status-msg").innerText = "エラー: " + err.message;
             document.getElementById("match-count-box").innerText = "読み込み失敗";
             document.getElementById("header-year-sub").innerText = "読み込みエラー";
+        } finally {
+            hideLoading();   // 成功でも失敗でも、読み込み画面は閉じる（失敗時はエラー表示が見える）
         }
     }
 
@@ -722,6 +813,7 @@
         const deptKey = Object.keys(colMap).find(k => k === '学科名');
         const methodNameKey = Object.keys(colMap).find(k => k === '日程方式名');
         const typeKey = Object.keys(colMap).find(k => k.includes('学校区分') || k.includes('設置区分') || k === '区分');
+        const grpKey = Object.keys(colMap).find(k => k.includes('大学グループ区分'));
 
         let detectedYear = '';
         const parsed = [];
@@ -747,6 +839,11 @@
             if (row.length > 26 && row[26]) {
                 shortNameVal = String(row[26]).trim().replace(/^"|"$/g, '');
             }
+            const grpVal = grpKey !== undefined ? String(row[colMap[grpKey]]).trim() : '';
+            // 共通テスト利用か: 大学グループ区分が「1」、または学科短縮名に「共テ」「共通テスト」「テ前」「テ併」がある
+            //   （ただし「マーケテ前」「インテ前」は除く）。国公立（区分1・2）には「共」は付けない
+            const isKyo = typeVal !== '1' && typeVal !== '2' &&
+                (grpVal === '1' || /共テ|共通テスト|テ前|テ併/.test(nz(shortNameVal).replace(/マーケテ前|インテ前/g, '')));
 
             if (code && code !== 'NaN') {
                 const id = 'item_' + i;
@@ -758,7 +855,8 @@
                     dept: deptActual && deptActual !== 'nan' && deptActual !== 'NaN' ? deptActual : '',
                     methodName: methodName && methodName !== 'nan' ? methodName : '',
                     schoolType: typeVal,
-                    shortName: shortNameVal && shortNameVal !== 'nan' ? shortNameVal : ''
+                    shortName: shortNameVal && shortNameVal !== 'nan' ? shortNameVal : '',
+                    kyo: isKyo
                 };
                 parsed.push(itemObj);
                 dataMap[id] = itemObj;
@@ -821,6 +919,7 @@
 
     function saveAndFilter() {
         const conditions = {
+            code: document.getElementById("s-code").value,
             type: document.getElementById("s-type").value,
             univ: document.getElementById("s-univ").value,
             fac: document.getElementById("s-fac").value,
@@ -836,6 +935,7 @@
             const saved = localStorage.getItem("exam_search_conditions");
             if (saved) {
                 const c = JSON.parse(saved);
+                if (c.code !== undefined) document.getElementById("s-code").value = c.code;
                 if (c.type !== undefined) document.getElementById("s-type").value = c.type;
                 if (c.univ !== undefined) document.getElementById("s-univ").value = c.univ;
                 if (c.fac !== undefined) document.getElementById("s-fac").value = c.fac;
@@ -847,9 +947,15 @@
         }
     }
 
+    // コード検索で入力された数字（カードで一致したコードを黄色くするために覚えておく）
+    let codeQuery = '';
+
     function filterData() {
         if (allData.length === 0) return;
 
+        const codeRaw = document.getElementById("s-code").value.trim();
+        const qCode = nz(codeRaw).replace(/[^0-9]/g, '');       // 全角数字・前後の空白・ハイフンが混ざってもOK
+        codeQuery = qCode;
         const qType = document.getElementById("s-type").value;
         const qUniv = document.getElementById("s-univ").value.trim().toLowerCase();
         const qFac = document.getElementById("s-fac").value.trim().toLowerCase();
@@ -859,14 +965,20 @@
         const countBox = document.getElementById("match-count-box");
         const container = document.getElementById("result-container");
 
-        if (!qType && !qUniv && !qFac && !qDept && !qMethod) {
+        if (!qType && !qUniv && !qFac && !qDept && !qMethod && !codeRaw) {
             countBox.innerHTML = `<span>検索スタンバイ中</span><span class="highlight-count">全 ${allData.length.toLocaleString()} 件</span>`;
-            container.innerHTML = `<div class="guide-msg">🔍 上の検索条件を開いて条件を指定してください</div>`;
+            container.innerHTML = `<div class="guide-msg">🔍 上の検索条件を開いて条件を指定してください<br>コード番号（5桁）からも探せます</div>`;
+            return;
+        }
+        if (codeRaw && qCode.length < 3) {      // 1〜2桁だと大量にヒットして重くなるので、3桁以上から
+            countBox.innerHTML = `<span>コード番号</span><span class="highlight-count">3桁以上で検索</span>`;
+            container.innerHTML = `<div class="guide-msg">🔢 コード番号は3桁以上入力してください（例: 52385）</div>`;
             return;
         }
 
         const filtered = allData.filter(item => {
             if (qType && item.schoolType !== qType) return false;
+            if (qCode && !item.code.startsWith(qCode)) return false;       // コードは先頭から一致
             if (qUniv && !item.univ.toLowerCase().includes(qUniv)) return false;
             if (qFac && !item.fac.toLowerCase().includes(qFac)) return false;
             if (qDept && !item.dept.toLowerCase().includes(qDept)) return false;
@@ -915,7 +1027,8 @@
             const schoolType = univData.schoolType;
             
             const isExactMatch = qUniv && univName.toLowerCase() === qUniv;
-            let isOpen = (qUniv && (isExactMatch || isSingleUniv)) || (!qUniv && index === 0) || isSingleUniv;
+            //   完全一致の大学・1大学だけの結果は開く。大学名もコードも入れていない検索（学部名だけ等）のときだけ先頭を開いておく
+            let isOpen = (qUniv && (isExactMatch || isSingleUniv)) || (!qUniv && !codeQuery && index === 0) || isSingleUniv;
 
             const facGrouped = {};
             univItems.forEach(item => {
@@ -950,13 +1063,15 @@
                     if (!displayBadge && item.shortName) {
                         displayBadge = `${item.shortName}`;
                     }
-                    const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
+                    // 学部 → 学科 → 共 → 方式 の順（共通テスト利用なら「共」のバッジを方式の前に入れる）
+                    const badgeHtml = (displayBadge || item.kyo) ? `<div class="sub-card-meta">${item.kyo ? KYO_BADGE : ''}${displayBadge ? `<span class="sub-card-badge">${displayBadge}</span>` : ''}</div>` : '';
+                    const codeHit = codeQuery && item.code.startsWith(codeQuery);
 
                     cardsHtml += `
                         <div class="sub-card ${bgClass}">
                             <div class="sub-card-code-area">
-                                <div class="sub-card-code">${item.code}</div>
-                                <button onclick="event.stopPropagation(); addById('${item.id}')">保存</button>
+                                <div class="sub-card-code${codeHit ? ' code-hit' : ''}">${item.code}</div>
+                                ${saveBtnHtml(item)}
                             </div>
                             <div class="sub-card-content">
                                 <div class="sub-card-main">${mainStr}</div>
@@ -1001,6 +1116,9 @@
     function toggleUnivGroup(index) {
         const targetGroup = document.getElementById(`univ-group-${index}`);
         const isOpen = targetGroup.classList.contains('open');
+        // 閉じるとき: 見出しが上に張り付いている（中を読み進めている）なら、閉じたあとも見出しを見失わないように合わせる
+        const box = document.getElementById('result-container');
+        const wasStuck = isOpen && box && targetGroup.getBoundingClientRect().top < box.getBoundingClientRect().top - 1;
 
         document.querySelectorAll('.univ-group').forEach(group => {
             group.classList.remove('open');
@@ -1008,7 +1126,44 @@
 
         if (!isOpen) {
             targetGroup.classList.add('open');
+            scrollGroupToTop(targetGroup);    // 前に開いていた大学が閉じて位置がずれても、開いた大学を見失わないようにする
+        } else if (wasStuck) {
+            scrollGroupToTop(targetGroup);
         }
+    }
+
+    // 大学の見出しを、結果欄（スクロールする枠）の上端に合わせる。
+    //   ※ 画面全体ではなく「結果欄」がスクロールするので、結果欄の scrollTop を動かす
+    function scrollGroupToTop(el) {
+        const box = document.getElementById('result-container');
+        if (!box) return;
+        box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top;   // 開閉のあとの位置で計算する
+        // 結果欄そのものが固定ヘッダーの下に隠れているときは、画面全体も少しだけ動かして見えるようにする
+        const hd = document.querySelector('header');
+        const limit = (hd ? hd.offsetHeight : 44) + 4;
+        const top = box.getBoundingClientRect().top;
+        if (top < limit) window.scrollBy(0, top - limit);
+    }
+
+    // ---- 保存ボタンの状態: 保存したら「保存済」（押せない）。転記用リストから消すと「保存」に戻る ----
+    const KYO_BADGE = '<span class="kyo-badge" title="共通テスト利用">共</span>';
+    function isSavedItem(item) {
+        return savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName && i.shortName === item.shortName);
+    }
+    function saveBtnHtml(item) {
+        const saved = isSavedItem(item);
+        return `<button class="save-btn${saved ? ' saved' : ''}" data-save-btn="${item.id}" ${saved ? 'disabled' : ''} onclick="event.stopPropagation(); addById('${item.id}')">${saved ? '保存済' : '保存'}</button>`;
+    }
+    // 画面を描き直さず、保存ボタンだけ最新の状態にする（検索結果の開閉やスクロール位置を崩さないため）
+    function refreshSaveButtons() {
+        document.querySelectorAll('button[data-save-btn]').forEach(b => {
+            const item = dataMap[b.getAttribute('data-save-btn')];
+            if (!item) return;
+            const saved = isSavedItem(item);
+            b.className = 'save-btn' + (saved ? ' saved' : '');
+            b.disabled = saved;
+            b.textContent = saved ? '保存済' : '保存';
+        });
     }
 
     function addById(id) {
@@ -1018,8 +1173,9 @@
     }
 
     function addToList(item) {
-        if (savedList.some(i => i.code === item.code && i.univ === item.univ && i.methodName === item.methodName && i.shortName === item.shortName)) {
+        if (isSavedItem(item)) {
             showToast("この項目はすでにリストに登録されています");
+            refreshSaveButtons();
             return;
         }
         if (savedList.length >= 50) {
@@ -1116,6 +1272,7 @@
     }
 
     function renderSavedList() {
+        refreshSaveButtons();      // 保存・削除・全削除・読み込みのたびに、カードの保存ボタンも更新する
         const modalContainer = document.getElementById("modal-clip-container");
         const footerLeftArea = document.getElementById("modal-footer-left-area");
         document.getElementById("cart-count").innerText = `${savedList.length}`;
@@ -1145,7 +1302,7 @@
             if (!displayBadge && item.shortName) {
                 displayBadge = `${item.shortName}`;
             }
-            const badgeHtml = displayBadge ? `<div class="sub-card-meta"><span class="sub-card-badge">${displayBadge}</span></div>` : '';
+            const badgeHtml = (displayBadge || item.kyo) ? `<div class="sub-card-meta">${item.kyo ? KYO_BADGE : ''}${displayBadge ? `<span class="sub-card-badge">${displayBadge}</span>` : ''}</div>` : '';
 
             const isFirst = idx === 0;
             const isLast = idx === savedList.length - 1;
@@ -1225,6 +1382,59 @@
         const toast = document.getElementById("toast");
         toast.className = "";
         if (window.toastTimer) clearTimeout(window.toastTimer);
+    }
+
+    // ================= 版（更新日時）の表示 =================
+    //  GitHub Pages で公開しているときは、GitHub のAPIでこのHTMLの「最後にコミットされた日時」を取って右下に小さく出す。
+    //  取れないとき（GitHubで開いていない・APIの回数制限など）は、ファイルの最終更新日時（document.lastModified）を出す。
+    //  ※ APIは認証なしだと1時間に60回までなので、結果を10分間は端末に覚えておく。
+    //  （その下の「Up:」は、これまで通りcode.csvの更新日時）
+    function fmtStamp(d) {
+        const p2 = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}/${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    }
+    function showStamp(date, source) {
+        const el = document.getElementById('version-stamp');
+        if (!el || !date || isNaN(date)) return;
+        el.textContent = '更新 ' + fmtStamp(date);
+        el.title = source;
+    }
+    // 開いているURLから「持ち主・リポジトリ・ファイルのパス」を割り出す（GitHub Pages のURLのときだけ）
+    function githubRefFromLocation(loc) {
+        const m = (loc.hostname || '').match(/^([^.]+)\.github\.io$/);
+        if (!m) return null;
+        const owner = m[1];
+        const parts = (loc.pathname || '/').split('/').filter(Boolean);
+        const hasExt = (x) => /\.[A-Za-z0-9]+$/.test(x || '');
+        let repo, rest;
+        if (parts.length === 0 || (parts.length === 1 && hasExt(parts[0]))) { repo = loc.hostname; rest = parts; }   // owner.github.io 直下
+        else { repo = parts[0]; rest = parts.slice(1); }
+        if (!rest.length || !hasExt(rest[rest.length - 1])) rest = rest.concat('index.html');
+        return { owner, repo, path: rest.join('/') };
+    }
+    async function loadVersionStamp() {
+        try {
+            const lm = new Date(document.lastModified);
+            if (!isNaN(lm)) showStamp(lm, 'ファイルの最終更新（配信元の情報）');          // まず手元の情報で即表示
+            const ref = githubRefFromLocation(location);
+            if (!ref) return;
+            const key = `exam_stamp:${ref.owner}/${ref.repo}/${ref.path}`;
+            try {
+                const c = JSON.parse(localStorage.getItem(key) || 'null');
+                if (c && Date.now() - c.t < 10 * 60 * 1000) { showStamp(new Date(c.iso), 'GitHub の最終コミット日時'); return; }
+            } catch (e) { /* 覚えていない場合は取りに行く */ }
+            const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+            const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 6000);
+            const res = await fetch(`https://api.github.com/repos/${ref.owner}/${ref.repo}/commits?path=${encodeURIComponent(ref.path)}&per_page=1`,
+                { headers: { 'Accept': 'application/vnd.github+json' }, signal: ctl ? ctl.signal : undefined });
+            clearTimeout(timer);
+            if (!res.ok) return;                                                       // 回数制限など → ファイルの更新日時のまま
+            const list = await res.json();
+            const iso = list && list[0] && list[0].commit && (list[0].commit.committer || list[0].commit.author || {}).date;
+            if (!iso) return;
+            showStamp(new Date(iso), 'GitHub の最終コミット日時');
+            try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), iso })); } catch (e) { /* 保存できなくても表示はできている */ }
+        } catch (e) { /* 表示は飾りなので、失敗しても何もしない */ }
     }
 
     function toggleSearchCollapse() {
