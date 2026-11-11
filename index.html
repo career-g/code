@@ -579,9 +579,9 @@
             background: #e2e8f0; color: #64748b; border: 1px solid #cbd5e1; cursor: default;
         }
 
-        /* ---- 版（HTMLの最終更新日時）の表示: 右下に小さく・薄く。既存の「Up:」（CSVの更新）の1行上 ---- */
+        /* ---- 版（HTMLの最終更新日時）の表示: 右下に小さく・薄く。タップは素通り ---- */
         #version-stamp {
-            position: fixed; right: 6px; bottom: calc(13px + env(safe-area-inset-bottom, 0px)); z-index: 800;
+            position: fixed; right: 5px; bottom: calc(2px + env(safe-area-inset-bottom, 0px)); z-index: 800;
             font-size: 0.52rem; line-height: 1; color: #94a3b8; opacity: 0.8; text-shadow: 0 0 2px #fff, 0 0 2px #fff;
             font-variant-numeric: tabular-nums; font-family: system-ui, -apple-system, sans-serif;
             pointer-events: none; user-select: none; -webkit-user-select: none;
@@ -607,18 +607,6 @@
         #loading-overlay .ld-bar > div { height: 100%; width: 0%; background: #a78bfa; transition: width 0.3s ease; }
         @keyframes ld-spin { to { transform: rotate(360deg); } }
 
-        .last-updated {
-            position: fixed;
-            bottom: 3px;
-            right: 6px;
-            font-size: 0.55rem;
-            color: #94a3b8;
-            opacity: 0.7;
-            z-index: 800;
-            pointer-events: none;
-            font-family: monospace;
-            user-select: none;
-        }
     </style>
 </head>
 <body>
@@ -722,7 +710,6 @@
 
 <div id="toast"></div>
 <div id="version-stamp" aria-hidden="true"></div>
-<div class="last-updated" id="file-updated-time"></div>
 
 <script>
     let allData = [];
@@ -768,15 +755,7 @@
             
             if (lastModifiedHeader) {
                 const date = new Date(lastModifiedHeader);
-                cacheVersion = date.getTime();
-
-                const yyyy = date.getFullYear();
-                const mm = String(date.getMonth() + 1).padStart(2, '0');
-                const dd = String(date.getDate()).padStart(2, '0');
-                const hh = String(date.getHours()).padStart(2, '0');
-                const min = String(date.getMinutes()).padStart(2, '0');
-
-                document.getElementById("file-updated-time").innerText = `Up: ${yyyy}/${mm}/${dd} ${hh}:${min}`;
+                cacheVersion = date.getTime();   // CSVが更新されたときだけ取り直すための目印（画面には出さない）
             }
         } catch (e) {
             console.warn("更新日時の取得をスキップしました", e);
@@ -1388,7 +1367,6 @@
     //  GitHub Pages で公開しているときは、GitHub のAPIでこのHTMLの「最後にコミットされた日時」を取って右下に小さく出す。
     //  取れないとき（GitHubで開いていない・APIの回数制限など）は、ファイルの最終更新日時（document.lastModified）を出す。
     //  ※ APIは認証なしだと1時間に60回までなので、結果を10分間は端末に覚えておく。
-    //  （その下の「Up:」は、これまで通りcode.csvの更新日時）
     function fmtStamp(d) {
         const p2 = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}/${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
