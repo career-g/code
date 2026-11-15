@@ -468,7 +468,8 @@
         .src-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-family: monospace; font-size: 0.7rem; }
         .src-names { font-size: 0.72rem; color: #0f172a; line-height: 1.4; word-break: break-all; margin-top: 1px; }
         .src-note { font-size: 0.58rem; color: #64748b; font-family: system-ui, sans-serif; }
-        .src-flag { font-size: 0.58rem; font-weight: bold; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif; }
+        .src-flag.src-flag.flag-check { color: #991b1b; background: #fee2e2; border-color: #fca5a5; }   /* 要確認（方式名の数字が食い違う）は赤み */
+        .src-flag { white-space: nowrap; font-size: 0.58rem; font-weight: bold; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif; }
         .name-diff { background: #fef3c7; outline: 1px solid #f59e0b; border-radius: 3px; padding: 0 2px; }
         /* 保存・削除ボタンは左端（カードが横に長くても指が届く） */
         .pair-side { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.08); }
@@ -678,7 +679,7 @@
         </div>
     </div>
 
-    <div class="legend" id="legend">青の枠＝河合塾／オレンジの枠＝ベネッセ（それぞれコードと 学部 / 学科 / 方式 を表示）。<span class="name-diff">黄色</span>＝学部名・学科名が河合と違って見えるもの（略称のこともあるので要確認）。「推定」「共有」＝名前の似かた等で結んだ対応で、目で確認してください。</div>
+    <div class="legend" id="legend">青の枠＝河合塾／オレンジの枠＝ベネッセ（それぞれコードと 学部 / 学科 / 方式 を表示）。<span class="name-diff">黄色</span>＝学部名・学科名が河合と違って見えるもの（略称のこともあるので要確認）。「推定」＝方式名に手がかりがなく、候補が複数ある中から選んだ対応。<span class="src-flag src-flag flag-check">要確認</span>＝方式名の数字が食い違うもの。「共有」＝河合の複数の行が同じベネのコードを共有。いずれも目で確認してください。</div>
     <details id="rule-panel"><summary id="rule-panel-summary"></summary><div class="rule-body" id="rule-panel-body"></div></details>
     <div id="status-msg">「code.csv」「benecode.csv」「match_rules.csv」を読み込んで統合しています...</div>
     <div class="table-container" id="result-container"></div>
@@ -788,10 +789,18 @@
     const GRP_TO_SCHED = { 'D': '前', 'E': '後', 'C': '中', 'N': '独', '1': '共' };
 
     // 検索用: 全角英数→半角, 小文字化
-    const nz = (s) => String(s || '').normalize('NFKC').toLowerCase();
+    // 旧字体・異体字 → 新字体。「國學院」と「国学院」のように、河合とベネで字体が違っても同じ名前として比べるため。
+    //   比較のキーを作るときだけ使う（画面に出す名前は元の字のまま）。大学名・学部名・学科名・方式名のすべての比較に効く
+    const OLD_KANJI = (() => {
+        const m = {};
+        ('亞亜 惡悪 壓圧 圍囲 爲為 醫医 壹壱 稻稲 飮飲 隱隠 營営 榮栄 衞衛 驛駅 圓円 鹽塩 奧奥 應応 橫横 歐欧 黃黄 溫温 穩穏 假仮 價価 畫画 會会 繪絵 壞壊 懷懐 檢検 劍剣 險険 圈圏 縣県 顯顕 驗験 嚴厳 廣広 鑛鉱 號号 國国 濟済 齋斎 櫻桜 參参 殘残 絲糸 齒歯 兒児 辭辞 實実 舍舎 寫写 釋釈 壽寿 收収 從従 澁渋 縱縦 處処 獎奨 條条 乘乗 淨浄 疊畳 讓譲 觸触 愼慎 眞真 盡尽 圖図 數数 瀨瀬 淸清 靑青 聲声 齊斉 稅税 攝摂 專専 戰戦 淺浅 潛潜 錢銭 禪禅 錄録 雙双 莊荘 裝装 增増 臟臓 屬属 續続 體体 對対 帶帯 臺台 瀧滝 擇択 澤沢 擔担 單単 團団 彈弾 斷断 晝昼 蟲虫 廳庁 聽聴 鐵鉄 轉転 點点 傳伝 燈灯 當当 黨党 德徳 獨独 讀読 腦脳 廢廃 賣売 髮髪 拔抜 佛仏 變変 豐豊 與与 樣様 來来 賴頼 亂乱 覽覧 龍竜 兩両 綠緑 勵励 禮礼 靈霊 齡齢 曆暦 歷歴 戀恋 勞労 樓楼 灣湾 﨑崎 髙高 邊辺 邉辺 藝芸 舊旧 彌弥 彥彦 惠恵 靜静 關関 經経 觀観 發発 區区 藥薬 總総 產産 歸帰 氣気 擧挙 狹狭 峽峡 學学').split(' ').forEach(p => { m[p[0]] = p[1]; });
+        return m;
+    })();
+    const OLD_KANJI_RE = new RegExp('[' + Object.keys(OLD_KANJI).join('') + ']', 'g');
+    const nz = (s) => String(s || '').normalize('NFKC').toLowerCase().replace(OLD_KANJI_RE, (c) => OLD_KANJI[c]);
     const stripSpace = (s) => String(s || '').replace(/['\u3000\s]+/g, '');
     // ベネ側の名前（確認用に画面へ出す）。コードと一緒に持たせる
-    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim(), bs: b.sched, bk: b.sched === '共' && b.type !== '1' && b.type !== '2' }; }   // bk=共バッジを付けるか（国公立は付けない）
+    function bInfo(b) { return { bu: b.univ, bf: b.rawFac, bd: b.rawDept, bm: b.method.trim(), bs: b.sched, bk: b.sched === '共' && b.type !== '1' && b.type !== '2', bx: b.mx || '' }; }   // bk=共バッジを付けるか（国公立は付けない）
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 
@@ -920,9 +929,52 @@
         panel.style.display = 'block';
     }
 
+    // =====================================================================
+    //  結びつきの確からしさ（「推定」「要確認」の判定）
+    //   これまでは「どの段階で結んだか」だけで「推定」を付けていたので、確かなものにも付き、あやしいものに付かないことがあった。
+    //   今は、結んだあとに「方式名の中身」と「その学科の選択肢の数」を見て、一貫したルールで判定し直す。
+    //     確実（印なし） … 方式名の語がすべて対応する／略称の関係にある／その学科に河合もベネも1行だけ（他に選びようがない）
+    //     要確認         … 方式名の数字が食い違う（高得点２科目型 ⇔ 高得１）
+    //     推定           … 上のどれでもなく、手がかりがないまま複数の候補から選んだ
+    //   国公立は方式名が「前期／前」と単純で、ベネの方式欄に科目名が入る形なので、この判定はせず従来のまま。
+    // =====================================================================
+    const METHOD_GENERIC = /共通テスト|共テ|プラス|プラ|前期|後期|中期|方式|日程|入試|試験|選抜|一般|教科|科目|型|期|前|後|中|共|第|回|科/g;
+    // 方式名から「見分けるための語」だけを取り出す（数字・英字1文字・その他の語）
+    function methodTokens(text) {
+        // ローマ数字（Ⅰ期・Ⅱ期）は「第○期」と同じ働きなので無視して、数字・英字・語だけで比べる
+        const x = nz(String(text || '').replace(/[\u2160-\u216B\u2170-\u217B]/g, ' ')).replace(/\s+/g, '').replace(/[（()）【】\[\]]/g, ' ').replace(METHOD_GENERIC, ' ');
+        const out = [];
+        x.split(/[\s・\/\-－＋+、,]+/).forEach(w => { if (w) (w.match(/\d+|[a-z]|[^\da-z]+/g) || []).forEach(p => out.push(p)); });
+        return out;
+    }
+    // 河合の方式名とベネの方式名の関係: 'conflict'(数字が食い違う) / 'same'(語がすべて対応・文字が同一) / 'abbr'(略称) / 'other'
+    function methodEvidence(kText, bText) {
+        const plain = (t) => nz(t).replace(/\s+/g, '').replace(/^共/, '').replace(/[（()）【】\[\]]/g, '');
+        const ks = plain(kText), bs = plain(bText);
+        const K = methodTokens(kText), B = methodTokens(bText);
+        const isNum = (t) => /^\d+$/.test(t);
+        const kd = K.filter(isNum), bd = B.filter(isNum);
+        if (kd.length && bd.length && !bd.some(x => kd.includes(x))) return 'conflict';
+        if (ks && bs && ks === bs) return 'same';
+        const tokMatch = (a, b) => a === b || (a.length >= 2 && b.length >= 2 && (a.startsWith(b) || b.startsWith(a)));   // 「スタ」⇔「スタンダード」
+        if (K.length && B.length) {
+            const bIn = B.filter(b => K.some(k => tokMatch(k, b))), kIn = K.filter(k => B.some(b => tokMatch(k, b)));
+            if (bIn.length === B.length && kIn.length === K.length) return 'same';
+            // 片方の語が全部もう片方に含まれ、余った語が英字・数字ではない（「併用」「外部」など）ときも対応とみなす（「Ａ日程併用」⇔「Ａ」）。
+            //   余った語が英字・数字なら別の方式の可能性があるので対応とはしない（「Ｃ方式３教科」⇔「３」は C が余る）
+            const isSym = (t) => /^[a-z]$/.test(t) || isNum(t);
+            if (bIn.length === B.length && !K.filter(k => !B.some(b => tokMatch(k, b))).some(isSym)) return 'same';
+            if (kIn.length === K.length && !B.filter(b => !K.some(k => tokMatch(k, b))).some(isSym)) return 'same';
+        }
+        // 数字だけで見分ける方式（「２科目」⇔「２科前」）: 数字が合い、数字以外の語が両側にない
+        if (kd.length && bd.length && !K.some(t => !isNum(t)) && !B.some(t => !isNum(t)) && bd.every(x => kd.includes(x)) && kd.every(x => bd.includes(x))) return 'same';
+        if (bs.length >= 2 && ks.length >= 2 && (isSubsequence(bs, ks) || isSubsequence(ks, bs))) return 'abbr';   // 「英語外部」⇔「英外部」
+        return 'other';
+    }
+
     // 大学名のキー（末尾の「大学」「大」だけ除去。「大学」を付け足さない）
     function univKey(name) {
-        return stripSpace(name).replace(/大学$/, '').replace(/大$/, '');
+        return stripSpace(nz(name)).replace(/大学$/, '').replace(/大$/, '');   // 旧字体・全角半角の違いは吸収して比べる
     }
 
     // 日程の種別: 前 / 後 / 中 / '' (共通テスト利用・独自・不明)
@@ -1132,12 +1184,12 @@
             const k = univKey(bName);
             if (kUnivs.has(k)) { univMap.set(bName, k); return; }
             // (3) 略称一致: 「旭川医大」→「旭川医科大学」のように部分列で一意に決まるものだけ採用
-            const bNorm = stripSpace(bName);
+            const bNorm = stripSpace(nz(bName));                         // 旧字体・全角半角をそろえて比べる（「国学院北海道短」⇔「國學院大北海道短大部」）
             if (univKey(bNorm).length < 3) return;
             const cands = [];
             kUnivs.forEach((info, key) => {
                 if (info.type !== bType) return;                         // 学校区分が同じ
-                const kn = info.name.replace(/^公立/, '');               // 「公立千歳科学技術」⇔「千歳科学技大」のように、河合側の「公立」は外して比べる
+                const kn = nz(info.name).replace(/^公立/, '');           // 「公立千歳科学技術」⇔「千歳科学技大」のように、河合側の「公立」は外して比べる
                 if (kn.charAt(0) !== bNorm.charAt(0)) return;            // 先頭1文字が同じ
                 const full = /大学$|短大|大学校$/.test(kn) ? kn : kn + '大学';
                 if (isSubsequence(bNorm, full)) cands.push({ key, len: info.name.length });
@@ -1292,6 +1344,7 @@
             // 読み替えルール（方式）: 「共 プラＡ」→「共通テスト＋Ａ」。日程つきの全体 → 方式部分だけ の順に試す
             let mr = RULES.method.apply(b.method, b.univ);
             if (!mr.hit) mr = RULES.method.apply(wayOnly, b.univ);
+            b.mx = mr.hit ? mr.text : '';       // ルールで読み替えたあとの方式名（「共プラス」→「共通テスト＋」）。確からしさの判定に使う
             b.ruled = !!mr.scoped;   // 「対象大学」つきのルールで方式名の意味が決まった行（仕上げの段階で、無関係な行と結ばないための目印。全大学共通のルールは推測を含むので対象外）
             b.mKey = (mr.hit ? methodNorm(mr.text) : methodNorm(wayOnly)) || (SCHED_FULL[b.sched] || '');
             const kKey = univMap.get(b.univ);
@@ -1691,6 +1744,28 @@
             });
             for (let i = beneOnly.length - 1; i >= 0; i--) if (absorbed.has(beneOnly[i])) beneOnly.splice(i, 1);
         }
+        // 結びつきの確からしさを、方式名の中身と学科内の選択肢の数で判定し直す（国公立は従来のまま）
+        {
+            const gk = (m) => [m.univ, m.fac, m.dept, m.kyo ? 'K' : 'N'].join('|');
+            const grp = new Map();
+            merged.forEach(m => {
+                if (!m.kawaiCode) return;
+                const g = grp.get(gk(m)) || { nk: 0, nb: 0 };
+                g.nk++; g.nb += m.beneCodes.length; grp.set(gk(m), g);
+            });
+            merged.forEach(m => {
+                if (!m.kawaiCode || m.type === '1' || m.type === '2') return;
+                const g = grp.get(gk(m)), forced = g.nk === 1 && g.nb === 1;        // その学科に河合もベネも1行だけ＝他に選びようがない
+                m.beneCodes.forEach(c => {
+                    if (c.shared) return;                                           // 「共有」は別の印なので、そのまま
+                    const ev = methodEvidence(m.method, c.bx || c.bm);       // ルールで読み替えた方式名があれば、その形で比べる
+                    c.check = false; c.why = '';
+                    if (ev === 'conflict') { c.est = true; c.check = true; c.why = `方式名の数字が食い違っています（河合「${m.method || '（なし）'}」／ベネ「${c.bm || '（なし）'}」）。別の方式の可能性があります`; }
+                    else if (ev === 'same' || ev === 'abbr' || forced) c.est = false;
+                    else { c.est = true; c.why = '方式名に手がかりがなく、この学科に候補が複数あるため、順番や似かたで選んだ対応です'; }
+                });
+            });
+        }
         beneOnly.forEach(x => { delete x._b; });
 
         unifiedData = [...merged.values(), ...beneOnly];
@@ -1775,7 +1850,8 @@
         const warn = hasNames && kHas && !facCompatible(item.fac, c.bf);
         const warnD = hasNames && kHas && c.bd && !deptCompatible(item.dept, c.bd);
         const flag = c.shared ? '<span class="src-flag" title="河合の複数の行で同じベネのコードを共有しています">共有</span>'
-                   : (c.est ? '<span class="src-flag" title="名前の似かたと件数から推定した対応です">推定</span>' : '');
+                   : (c.check ? `<span class="src-flag flag-check" title="${esc(c.why || '')}">要確認</span>`
+                   : (c.est ? `<span class="src-flag" title="${esc(c.why || '名前の似かたと件数から推定した対応です')}">推定</span>` : ''));
         const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
         const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
         const isKyo = !!c.bk;                                        // ベネは日程の列が「共」なら共通テスト利用
