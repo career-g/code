@@ -469,7 +469,7 @@
         .src-names { font-size: 0.72rem; color: #0f172a; line-height: 1.4; word-break: break-all; margin-top: 1px; }
         .src-note { font-size: 0.58rem; color: #64748b; font-family: system-ui, sans-serif; }
         .src-flag.src-flag.flag-check { color: #991b1b; background: #fee2e2; border-color: #fca5a5; }   /* 要確認（方式名の数字が食い違う）は赤み */
-        .src-flag { white-space: nowrap; font-size: 0.58rem; font-weight: bold; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif; }
+        .src-flag { cursor: pointer; white-space: nowrap; font-size: 0.58rem; font-weight: bold; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; padding: 0 4px; font-family: system-ui, sans-serif; }
         .name-diff { background: #fef3c7; outline: 1px solid #f59e0b; border-radius: 3px; padding: 0 2px; }
         /* 保存・削除ボタンは左端（カードが横に長くても指が届く） */
         .pair-side { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.08); }
@@ -679,7 +679,7 @@
         </div>
     </div>
 
-    <div class="legend" id="legend">青の枠＝河合塾／オレンジの枠＝ベネッセ（それぞれコードと 学部 / 学科 / 方式 を表示）。<span class="name-diff">黄色</span>＝学部名・学科名が河合と違って見えるもの（略称のこともあるので要確認）。「推定」＝方式名に手がかりがなく、候補が複数ある中から選んだ対応。<span class="src-flag src-flag flag-check">要確認</span>＝方式名の数字が食い違うもの。「共有」＝河合の複数の行が同じベネのコードを共有。いずれも目で確認してください。</div>
+    <div class="legend" id="legend">青の枠＝河合塾／オレンジの枠＝ベネッセ（それぞれコードと 学部 / 学科 / 方式 を表示）。<span class="name-diff">黄色</span>＝学部名・学科名が河合と違って見えるもの（略称のこともあるので要確認）。「推定」＝方式名に手がかりがなく、候補が複数ある中から選んだ対応。<span class="src-flag src-flag flag-check">要確認</span>＝方式名の数字・英字が食い違うもの。「共有」＝河合の複数の行が同じベネのコードを共有。印をタップすると理由が出ます。いずれも目で確認してください。</div>
     <details id="rule-panel"><summary id="rule-panel-summary"></summary><div class="rule-body" id="rule-panel-body"></div></details>
     <div id="status-msg">「code.csv」「benecode.csv」「match_rules.csv」を読み込んで統合しています...</div>
     <div class="table-container" id="result-container"></div>
@@ -954,7 +954,10 @@
         const K = methodTokens(kText), B = methodTokens(bText);
         const isNum = (t) => /^\d+$/.test(t);
         const kd = K.filter(isNum), bd = B.filter(isNum);
-        if (kd.length && bd.length && !bd.some(x => kd.includes(x))) return 'conflict';
+        if (kd.length && bd.length && !bd.some(x => kd.includes(x))) return 'conflict';            // 数字が食い違う（２科目型 ⇔ ３科…）
+        const kl = K.filter(t => /^[a-z]$/.test(t)), bl = B.filter(t => /^[a-z]$/.test(t));
+        if (kl.length && bl.length && !bl.some(x => kl.includes(x))) return 'conflict';            // 英字が食い違う（Ｂ日程 ⇔ Ａ指定）
+        if (!ks && !bs) return 'same';                                                              // どちらも方式名なし（「共」だけ・空欄）
         if (ks && bs && ks === bs) return 'same';
         const tokMatch = (a, b) => a === b || (a.length >= 2 && b.length >= 2 && (a.startsWith(b) || b.startsWith(a)));   // 「スタ」⇔「スタンダード」
         if (K.length && B.length) {
@@ -1745,23 +1748,24 @@
             for (let i = beneOnly.length - 1; i >= 0; i--) if (absorbed.has(beneOnly[i])) beneOnly.splice(i, 1);
         }
         // 結びつきの確からしさを、方式名の中身と学科内の選択肢の数で判定し直す（国公立は従来のまま）
+        //   消去法: 同じ学科の中で、河合の行数とベネの数が同じで、方式名が対応しない組が1つだけ残るなら、その組は他に選びようがない
         {
             const gk = (m) => [m.univ, m.fac, m.dept, m.kyo ? 'K' : 'N'].join('|');
             const grp = new Map();
             merged.forEach(m => {
-                if (!m.kawaiCode) return;
-                const g = grp.get(gk(m)) || { nk: 0, nb: 0 };
-                g.nk++; g.nb += m.beneCodes.length; grp.set(gk(m), g);
-            });
-            merged.forEach(m => {
                 if (!m.kawaiCode || m.type === '1' || m.type === '2') return;
-                const g = grp.get(gk(m)), forced = g.nk === 1 && g.nb === 1;        // その学科に河合もベネも1行だけ＝他に選びようがない
-                m.beneCodes.forEach(c => {
-                    if (c.shared) return;                                           // 「共有」は別の印なので、そのまま
-                    const ev = methodEvidence(m.method, c.bx || c.bm);       // ルールで読み替えた方式名があれば、その形で比べる
+                const g = grp.get(gk(m)) || { nk: 0, nb: 0, pairs: [] };
+                g.nk++; g.nb += m.beneCodes.length; grp.set(gk(m), g);
+                m.beneCodes.forEach(c => { if (!c.shared) g.pairs.push({ m, c, ev: methodEvidence(m.method, c.bx || c.bm) }); });   // ルールで読み替えた方式名があれば、その形で比べる
+            });
+            grp.forEach(g => {
+                const forced = g.nk === 1 && g.nb === 1;                                    // その学科に河合もベネも1行だけ
+                const weak = g.pairs.filter(p => p.ev === 'other');
+                const byElimination = weak.length === 1 && g.nk === g.nb && !g.pairs.some(p => p.ev === 'conflict');
+                g.pairs.forEach(({ m, c, ev }) => {
                     c.check = false; c.why = '';
-                    if (ev === 'conflict') { c.est = true; c.check = true; c.why = `方式名の数字が食い違っています（河合「${m.method || '（なし）'}」／ベネ「${c.bm || '（なし）'}」）。別の方式の可能性があります`; }
-                    else if (ev === 'same' || ev === 'abbr' || forced) c.est = false;
+                    if (ev === 'conflict') { c.est = true; c.check = true; c.why = `方式名の数字・英字が食い違っています（河合「${m.method || '（なし）'}」／ベネ「${c.bm || '（なし）'}」）。別の方式の可能性があります`; }
+                    else if (ev === 'same' || ev === 'abbr' || forced || byElimination) c.est = false;
                     else { c.est = true; c.why = '方式名に手がかりがなく、この学科に候補が複数あるため、順番や似かたで選んだ対応です'; }
                 });
             });
@@ -1849,9 +1853,10 @@
         const hasNames = c.bf !== undefined || c.bd !== undefined;
         const warn = hasNames && kHas && !facCompatible(item.fac, c.bf);
         const warnD = hasNames && kHas && c.bd && !deptCompatible(item.dept, c.bd);
-        const flag = c.shared ? '<span class="src-flag" title="河合の複数の行で同じベネのコードを共有しています">共有</span>'
-                   : (c.check ? `<span class="src-flag flag-check" title="${esc(c.why || '')}">要確認</span>`
-                   : (c.est ? `<span class="src-flag" title="${esc(c.why || '名前の似かたと件数から推定した対応です')}">推定</span>` : ''));
+        const flagAttr = (why) => `data-why="${esc(why)}" title="${esc(why)}" onclick="event.stopPropagation(); showFlagWhy(this)"`;     // タップで理由を表示（スマホは title が見られないため）
+        const flag = c.shared ? `<span class="src-flag" ${flagAttr('河合の複数の行で、同じベネのコードを共有しています')}>共有</span>`
+                   : (c.check ? `<span class="src-flag flag-check" ${flagAttr(c.why || '方式名が食い違っています')}>要確認</span>`
+                   : (c.est ? `<span class="src-flag" ${flagAttr(c.why || '名前の似かたと件数から推定した対応です')}>推定</span>` : ''));
         const fac = c.bf ? `<span class="bold-fac${warn ? ' name-diff' : ''}" ${warn ? 'title="河合の学部名と違って見えます"' : ''}>${esc(c.bf)}</span>` : '';
         const dept = c.bd ? `${fac ? ' / ' : ''}<span class="normal-dept${warnD ? ' name-diff' : ''}" ${warnD ? 'title="河合の学科名と違って見えます（略称の場合もあります）"' : ''}>${esc(c.bd)}</span>` : '';
         const isKyo = !!c.bk;                                        // ベネは日程の列が「共」なら共通テスト利用
@@ -2364,6 +2369,13 @@
         if (!isConfirm && !customHtml) {
             window.toastTimer = setTimeout(() => { toast.className = ""; }, 2000);
         }
+    }
+
+    // 「推定」「要確認」「共有」の印をタップしたとき、理由を少し長めに表示する
+    function showFlagWhy(el) {
+        showToast(el.getAttribute('data-why') || '');
+        if (window.toastTimer) clearTimeout(window.toastTimer);
+        window.toastTimer = setTimeout(() => { document.getElementById('toast').className = ''; }, 4500);
     }
 
     function hideToast() {
