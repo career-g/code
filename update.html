@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mix 更新ツール</title>
+<style>
+  :root { --pri:#6d28d9; --bg:#f1f5f9; --line:#cbd5e1; --ok:#16a34a; --ng:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:#0f172a; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif; line-height:1.5; }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:12px 16px; font-weight:bold; color:var(--pri); font-size:1.05rem; }
+  main { max-width:720px; margin:0 auto; padding:12px 16px 40px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:10px 0; }
+  h2 { font-size:0.95rem; margin:0 0 6px; }
+  p, li { font-size:0.82rem; color:#334155; margin:4px 0; }
+  ol { padding-left: 1.2em; margin:4px 0; }
+  label.file { display:block; font-size:0.82rem; font-weight:bold; margin-top:10px; }
+  label.file small { display:block; font-weight:normal; color:#64748b; }
+  input[type=file] { display:block; width:100%; margin-top:4px; font-size:0.8rem; padding:6px; border:1px dashed var(--line); border-radius:8px; background:#f8fafc; }
+  .chk { font-size:0.8rem; margin-top:12px; display:flex; gap:6px; align-items:flex-start; }
+  button { font-size:0.95rem; border:0; border-radius:10px; padding:10px 16px; background:var(--pri); color:#fff; font-weight:bold; cursor:pointer; }
+  button:disabled { background:#cbd5e1; cursor:default; }
+  button.dl { background:var(--ok); margin:4px 6px 4px 0; }
+  #log { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:0.72rem; background:#0f172a; color:#e2e8f0; border-radius:8px; padding:8px 10px; max-height:260px; overflow:auto; white-space:pre-wrap; display:none; }
+  .err { color:var(--ng); font-weight:bold; font-size:0.85rem; }
+  table { border-collapse:collapse; font-size:0.78rem; width:100%; }
+  td, th { border:1px solid var(--line); padding:4px 8px; text-align:left; }
+  th { background:#f8fafc; }
+  .bar { height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin:8px 0; display:none; }
+  .bar > div { height:100%; width:0; background:var(--pri); transition:width .2s; }
+</style>
+</head>
+<body>
+<header>🛠 mix 更新ツール（来年度の対応表づくり）</header>
+<main>
+  <div class="card">
+    <h2>これは何をするページ？</h2>
+    <p>新しい年度の「河合ベネ」表（xlsx）などから、<b>mix.html が使う2つのファイル</b>を作ります。パソコンに何も入れなくて大丈夫です（ブラウザだけで動き、ファイルは外に送信されません）。</p>
+    <ul style="padding-left:1.2em;margin:4px 0">
+      <li><b>ref_pairs.csv</b> … 河合ベネ表を、mix.html が読める形にしたもの</li>
+      <li><b>method_model.csv</b> … 河合とベネの方式名の対応づけを、正解から学習したもの</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>手順</h2>
+    <ol>
+      <li>下の3つのファイルを選ぶ</li>
+      <li>「作成する」を押す（数十秒〜1分ほど）</li>
+      <li>できた2つのファイルをダウンロードして、mix.html と同じフォルダに上書きする</li>
+    </ol>
+    <label class="file">① 河合ベネ表（.xlsx）<small>河合塾とベネッセが共同で作ったマッチング表</small>
+      <input type="file" id="f-xlsx" accept=".xlsx"></label>
+    <label class="file">② code.csv<small>河合塾のコード表（今年度）</small>
+      <input type="file" id="f-kawai" accept=".csv,text/csv"></label>
+    <label class="file">③ benecode.csv<small>ベネッセのコード表（今年度）</small>
+      <input type="file" id="f-bene" accept=".csv,text/csv"></label>
+    <label class="chk"><input type="checkbox" id="chk-cv"> <span>精度の検証もする（見たことのない大学での的中率を測ります。数分かかることがあります）</span></label>
+    <div style="margin-top:12px"><button id="btn-run" disabled>作成する</button></div>
+    <div class="bar" id="bar"><div id="bar-in"></div></div>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div class="card" id="log-card" style="display:none"><h2>経過</h2><div id="log"></div></div>
+
+  <div class="card" id="result" style="display:none">
+    <h2>できました</h2>
+    <div id="dl-area"></div>
+    <table id="report"></table>
+    <p style="margin-top:8px">ダウンロードした2つのファイルを、<b>mix.html と同じフォルダ</b>に置いて（古いものは上書き）、mix.html を開き直してください。</p>
+  </div>
+</main>
+
+<script>
+(() => {
+'use strict';
+// ====================================================================
+//  mix.html と同じ文字の正規化・特徴づくり（methodFeats）・割り当て（hungarian）を使います。
+//  ここを変えるときは mix.html の同名の関数と必ずそろえてください。
+// ====================================================================
+const OLD_KANJI = (() => {
+        const m = {};
+        ('亞亜 惡悪 壓圧 圍囲 爲為 醫医 壹壱 稻稲 飮飲 隱隠 營営 榮栄 衞衛 驛駅 圓円 鹽塩 奧奥 應応 橫横 歐欧 黃黄 溫温 穩穏 假仮 價価 畫画 會会 繪絵 壞壊 懷懐 檢検 劍剣 險険 圈圏 縣県 顯顕 驗験 嚴厳 廣広 鑛鉱 號号 國国 濟済 齋斎 櫻桜 參参 殘残 絲糸 齒歯 兒児 辭辞 實実 舍舎 寫写 釋釈 壽寿 收収 從従 澁渋 縱縦 處処 獎奨 條条 乘乗 淨浄 疊畳 讓譲 觸触 愼慎 眞真 盡尽 圖図 數数 瀨瀬 淸清 靑青 聲声 齊斉 稅税 攝摂 專専 戰戦 淺浅 潛潜 錢銭 禪禅 錄録 雙双 莊荘 裝装 增増 臟臓 屬属 續続 體体 對対 帶帯 臺台 瀧滝 擇択 澤沢 擔担 單単 團団 彈弾 斷断 晝昼 蟲虫 廳庁 聽聴 鐵鉄 轉転 點点 傳伝 燈灯 當当 黨党 德徳 獨独 讀読 腦脳 廢廃 賣売 髮髪 拔抜 佛仏 變変 豐豊 與与 樣様 來来 賴頼 亂乱 覽覧 龍竜 兩両 綠緑 勵励 禮礼 靈霊 齡齢 曆暦 歷歴 戀恋 勞労 樓楼 灣湾 﨑崎 髙高 邊辺 邉辺 藝芸 舊旧 彌弥 彥彦 惠恵 靜静 關関 經経 觀観 發発 區区 藥薬 總総 產産 歸帰 氣気 擧挙 狹狭 峽峡 學学').split(' ').forEach(p => { m[p[0]] = p[1]; });
+        return m;
+    })();
+    
+const OLD_KANJI_RE = new RegExp('[' + Object.keys(OLD_KANJI).join('') + ']', 'g');
+const nz = (s) => String(s || '').normalize('NFKC').toLowerCase().replace(OLD_KANJI_RE, (c) => OLD_KANJI[c]);
+const mnz = (s) => nz(s).replace(/\s+/g, '');
+const isNumTok = (t) => t.charCodeAt(0) >= 48 && t.charCodeAt(0) <= 57;
+function methodFeats(bway, kmethod) {
+    const bs = mnz(bway).replace(/^共/, ''), ks = mnz(kmethod);
+    const TOK = /[0-9]+|[a-z]|[^0-9a-z]/gu;
+    const bt = bs.match(TOK) || [], kt = ks.match(TOK) || [];
+    const f = new Map();
+    const bdl = bt.filter(isNumTok), kdl = kt.filter(isNumTok);
+    const bl = new Set(bt.filter(t => t.length === 1 && t >= 'a' && t <= 'z')), kl = new Set(kt.filter(t => t.length === 1 && t >= 'a' && t <= 'z'));
+    const inter = (a, b) => [...a].some(x => b.has(x));
+    const bd = new Set(bdl), kd = new Set(kdl);
+    if (bd.size && kd.size) f.set(inter(bd, kd) ? 'dig_match' : 'dig_conf', 1);
+    else if (bd.size) f.set('dig_bonly', 1);
+    else if (kd.size) f.set('dig_konly', 1);
+    else f.set('dig_none', 1);
+    if (bl.size && kl.size) f.set(inter(bl, kl) ? 'let_match' : 'let_conf', 1);
+    else if (bl.size) f.set('let_bonly', 1);
+    else if (kl.size) f.set('let_konly', 1);
+    if (bdl.length && kdl.length) {
+        const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+        if (same(bdl, kdl)) f.set('dseq_eq', 1);
+        else if (same(kdl.slice(0, bdl.length), bdl)) f.set('dseq_prefix', 1);
+        else if (same(bdl.slice(0, kdl.length), kdl)) f.set('dseq_kprefix', 1);
+        else {
+            f.set('dseq_diff', 1);
+            if (bdl[0] === kdl[0]) f.set('dseq_first_eq', 1);
+            if (bdl[bdl.length - 1] === kdl[kdl.length - 1]) f.set('dseq_last_eq', 1);
+        }
+        if (bdl.length > 1 || kdl.length > 1) for (let i = 0; i < Math.min(bdl.length, kdl.length); i++) f.set('dpos' + i + '_' + (bdl[i] === kdl[i] ? 'eq' : 'ne'), 1);
+    }
+    const bc = bt.filter(t => !isNumTok(t)), kc = kt.filter(t => !isNumTok(t));
+    const frac = (a, b) => { const rest = b.slice(); let n = 0; for (const c of a) { const i = rest.indexOf(c); if (i >= 0) { rest.splice(i, 1); n++; } } return a.length ? n / a.length : 1.0; };
+    const fb = frac(bc, kc), fk = frac(kc, bc);
+    f.set('fb', fb); f.set('fk', fk); f.set('fb*fk', fb * fk);
+    f.set('bempty', bc.length ? 0 : 1); f.set('kempty', kc.length ? 0 : 1);
+    if (!bs && !ks) f.set('both_empty', 1);
+    const subseq = (a, b) => { let i = 0; for (const c of b) if (i < a.length && c === a[i]) i++; return i === a.length; };
+    if (bc.length && subseq(bc, kc)) f.set('b_sub_k', 1);
+    if (kc.length && subseq(kc, bc)) f.set('k_sub_b', 1);
+    const bset = new Set(bc), kset = new Set(kc);
+    f.set('unexp_b', bc.length - [...bset].filter(c => kc.includes(c)).length);
+    f.set('unexp_k', kc.length - [...kset].filter(c => bc.includes(c)).length);
+    const bsa = Array.from(bs), ksa = Array.from(ks);
+    const bb = [], kb = [];
+    for (let i = 0; i < bsa.length - 1; i++) bb.push(bsa[i] + bsa[i + 1]);
+    for (let i = 0; i < ksa.length - 1; i++) kb.push(ksa[i] + ksa[i + 1]);
+    const bbs = new Set(bb), kbs = new Set(kb);
+    if (bb.length) { const sh = [...bbs].filter(g => kbs.has(g)); f.set('bg_b', sh.length / bbs.size); sh.forEach(g => f.set('eq2|' + g, 1)); }
+    if (kb.length) f.set('bg_k', [...kbs].filter(g => bbs.has(g)).length / kbs.size);
+    for (const c of bset) f.set((kset.has(c) ? 'eq|' : 'bu|') + c, 1);
+    for (const d of kset) if (!bset.has(d)) f.set('ku|' + d, 1);
+    for (const c of bset) for (const d of kset) if (c !== d) f.set('x|' + c + '|' + d, 1);
+    return f;
+}
+function hungarian(cost, n, m) {
+    const INF = 1e18, u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0), p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);
+    for (let i = 1; i <= n; i++) {
+        p[0] = i; let j0 = 0; const minv = new Array(m + 1).fill(INF), used = new Array(m + 1).fill(false);
+        do {
+            used[j0] = true; const i0 = p[j0]; let delta = INF, j1 = 0;
+            for (let j = 1; j <= m; j++) if (!used[j]) {
+                const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+                if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+                if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+            }
+            for (let j = 0; j <= m; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+            j0 = j1;
+        } while (p[j0] !== 0);
+        do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+    }
+    const ans = new Array(n).fill(-1);
+    for (let j = 1; j <= m; j++) if (p[j]) ans[p[j] - 1] = j - 1;
+    return ans;
+}
+const ML_TAU = -4, ML_LAMBDA = 2;   // mix.html と同じ値
+function assignScores(S, n, m) {
+    const BIG = 1e6, cost = [];
+    for (let i = 0; i < n; i++) {
+        const row = [];
+        for (let j = 0; j < m; j++) row.push(-S[i][j]);
+        for (let j = 0; j < m; j++) row.push(-(S[i][j] - ML_LAMBDA));
+        for (let t = 0; t < n; t++) row.push(t === i ? -ML_TAU : BIG);
+        cost.push(row);
+    }
+    const ans = hungarian(cost, n, 2 * m + n), out = [];
+    ans.forEach((j, i) => { if (j >= 0 && j < 2 * m) out.push([i, j % m]); });
+    return out;
+}
+
+// ====================================================================
+//  ファイル読み込み
+// ====================================================================
+function decodeText(buf) {
+    for (const enc of ['utf-8', 'shift_jis']) { try { return new TextDecoder(enc, { fatal: true }).decode(buf); } catch (e) {} }
+    return new TextDecoder('utf-8').decode(buf);
+}
+function parseCSV(text) {
+    const rows = []; let row = [], cur = '', q = false;
+    text = text.replace(/^﻿/, '');
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+        else if (c === '"') q = true;
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; rows.push(row); row = []; }
+        else cur += c;
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows;
+}
+// ---- xlsx（zip＋XML）をブラウザの標準機能だけで読む ----
+async function inflateRaw(bytes) {
+    const ds = new DecompressionStream('deflate-raw');
+    const stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function unzip(buf) {
+    const dv = new DataView(buf), u8 = new Uint8Array(buf), files = {};
+    let eocd = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('xlsxファイルとして読めません（壊れているか、xlsx ではありません）');
+    const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+    for (let i = 0; i < n; i++) {
+        if (dv.getUint32(p, true) !== 0x02014b50) break;
+        const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+        const nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+        const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
+        files[name] = { method, csize, off };
+        p += 46 + nl + el + cl;
+    }
+    const get = async (name) => {
+        const f = files[name]; if (!f) return null;
+        const lnl = dv.getUint16(f.off + 26, true), lel = dv.getUint16(f.off + 28, true);
+        const start = f.off + 30 + lnl + lel, data = u8.subarray(start, start + f.csize);
+        return new TextDecoder().decode(f.method === 0 ? data : await inflateRaw(data));
+    };
+    return { get, names: Object.keys(files) };
+}
+const colIndex = (ref) => { let n = 0; for (const ch of ref.replace(/[0-9]/g, '')) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
+async function readXlsx(buf) {
+    const z = await unzip(buf), dp = new DOMParser();
+    const xml = async (name) => { const t = await z.get(name); return t == null ? null : dp.parseFromString(t, 'application/xml'); };
+    // シートの場所（先頭に「表の見方」などの説明シートがあることもあるので、全シートを順に調べる）
+    const wb = await xml('xl/workbook.xml'), rels = await xml('xl/_rels/workbook.xml.rels');
+    const sheetPaths = [];
+    if (wb && rels) {
+        const relMap = {};
+        for (const r of rels.getElementsByTagName('Relationship')) { const t = r.getAttribute('Target'); relMap[r.getAttribute('Id')] = t.startsWith('/') ? t.slice(1) : 'xl/' + t; }
+        for (const sh of wb.getElementsByTagName('sheet')) {
+            const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+            if (relMap[rid]) sheetPaths.push(relMap[rid]);
+        }
+    }
+    if (!sheetPaths.length) sheetPaths.push('xl/worksheets/sheet1.xml');
+    const ss = [], sdoc = await xml('xl/sharedStrings.xml');
+    if (sdoc) for (const si of sdoc.getElementsByTagName('si')) {
+        let t = '';
+        for (const ch of si.children) {
+            if (ch.tagName === 't') t += ch.textContent;
+            else if (ch.tagName === 'r') for (const x of ch.children) if (x.tagName === 't') t += x.textContent;
+        }                                                      // rPh（ふりがな）は除く
+        ss.push(t);
+    }
+    const readSheet = (sheet) => {
+        const rows = [];
+        for (const r of sheet.getElementsByTagName('row')) {
+            const rn = parseInt(r.getAttribute('r'), 10) - 1, arr = [];
+            for (const c of r.children) {
+                if (c.tagName !== 'c') continue;
+                const idx = colIndex(c.getAttribute('r')), t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0];
+                let val = '';
+                if (t === 'inlineStr') val = Array.from(c.getElementsByTagName('t')).map(x => x.textContent).join('');
+                else if (v) {
+                    val = v.textContent;
+                    if (t === 's') val = ss[parseInt(val, 10)] || '';
+                    else if (!t || t === 'n') { const num = Number(val); if (isFinite(num) && Number.isInteger(num)) val = String(num); }
+                }
+                arr[idx] = val;
+            }
+            for (let i = 0; i < arr.length; i++) if (arr[i] === undefined) arr[i] = '';
+            rows[isNaN(rn) ? rows.length : rn] = arr;
+        }
+        for (let i = 0; i < rows.length; i++) if (!rows[i]) rows[i] = [];
+        return rows;
+    };
+    let first = null;
+    for (const path of sheetPaths) {
+        const sheet = await xml(path);
+        if (!sheet) continue;
+        const rows = readSheet(sheet);
+        if (!first) first = rows;
+        if (rows.slice(0, 6).some(r => r.some(c => String(c).trim() === '10桁大学コード'))) return rows;      // 見出しのあるシートを採用
+        await tick();
+    }
+    if (!first) throw new Error('シートが見つかりません');
+    return first;
+}
+
+// ====================================================================
+//  河合ベネ表 → ref_pairs.csv
+// ====================================================================
+const cell = (r, i) => (r[i] == null ? '' : String(r[i]).trim());
+const q = (v) => { const t = String(v == null ? '' : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+function findHeader(X) {
+    const h = X.slice(0, 6).findIndex(r => r.some(c => String(c).trim() === '10桁大学コード'));
+    if (h < 0) throw new Error('河合ベネ表の見出し（「10桁大学コード」）が見つかりません。表の形が昨年と違う可能性があります。');
+    const r = X[h].map(c => String(c).trim());
+    const ok = r[11] === '10桁大学コード' && r[5].includes('大学コード') && r[10].includes('方式') && r[13].includes('大学') && r[16].includes('方式');
+    if (!ok) throw new Error('河合ベネ表の列の並びが想定と違います（想定: 共通サイト5列／ベネ6列／河合6列）。見出し行: ' + r.slice(0, 17).join(' | '));
+    return h;
+}
+function makeRefPairs(X, h) {
+    const out = [['ベネ10桁', '河合10桁', 'ベネ大学', 'ベネ学部', 'ベネ学科', 'ベネ日程', 'ベネ方式', '河合大学', '河合学部', '河合学科', '河合方式']];
+    let both = 0, bo = 0, ko = 0;
+    for (const r of X.slice(h + 1)) {
+        const b10 = cell(r, 5), k10 = cell(r, 11);
+        if (!b10 && !k10) continue;
+        if (b10 && k10) both++; else if (b10) bo++; else ko++;
+        out.push([b10, k10, cell(r, 6), cell(r, 7), cell(r, 8), cell(r, 9), cell(r, 10), cell(r, 13), cell(r, 14), cell(r, 15), cell(r, 16)]);
+    }
+    return { text: '﻿' + out.map(r => r.map(q).join(',')).join('\r\n') + '\r\n', n: out.length - 1, both, bo, ko };
+}
+
+// ====================================================================
+//  code.csv / benecode.csv の読み込み → 学習用のグループづくり
+// ====================================================================
+function loadKawai(text) {
+    const rows = parseCSV(text), head = rows[0].map(h => h.trim().replace(/^'/, ''));
+    const col = (pred, label) => { const i = head.findIndex(pred); if (i < 0) throw new Error(`code.csv に「${label}」の列がありません`); return i; };
+    const ix = { k10: col(h => h.includes('大学コード') && h.includes('10桁'), '大学コード(10桁)'), univ: col(h => h === '大学名', '大学名'), fac: col(h => h === '学部名', '学部名'),
+        dept: col(h => h === '学科名', '学科名'), meth: col(h => h === '日程方式名', '日程方式名'), grp: col(h => h === '大学グループ区分', '大学グループ区分'), type: col(h => h === '学校区分', '学校区分') };
+    const K = new Map();
+    for (const r of rows.slice(1)) { const k10 = (r[ix.k10] || '').trim(); if (k10) K.set(k10, { univ: r[ix.univ] || '', fac: r[ix.fac] || '', dept: r[ix.dept] || '', meth: r[ix.meth] || '', grp: (r[ix.grp] || '').trim(), type: (r[ix.type] || '').trim() }); }
+    return K;
+}
+function loadBene(text) {
+    const rows = parseCSV(text), B = new Map();
+    for (const raw of rows.slice(1)) {
+        const r = raw.map(x => x.replace(/^'+/, '').trim().replace(/　/g, '').trim());
+        if (r.length < 13 || r[12] === '0') continue;
+        const c = r[0].padStart(4, '0') + r[1].padStart(2, '0') + r[2].padStart(2, '0') + r[3].slice(-1) + r[4].slice(-1);
+        B.set(c, { univ: r[6], fac: r[7], dept: r[8], sched: r[9], way: r[10] });
+    }
+    return B;
+}
+const kclass = (k) => k.grp === '1' ? '共' : ({ D: '前', E: '後', C: '中', N: '独' }[k.grp] || '');
+const bclass = (b) => ['前', '後', '中', '独', '共'].includes(b.sched) ? b.sched : '';
+function buildGroups(K, B, X, h) {
+    const anch = new Map(), gtB2K = new Map(), bonly = new Set();
+    let pairRows = 0, validRows = 0;
+    for (const r of X.slice(h + 1)) {
+        const b10 = cell(r, 5), k10 = cell(r, 11);
+        if (b10 && !k10) { bonly.add(b10); continue; }
+        if (!b10 || !k10) continue;
+        pairRows++;
+        const kr = K.get(k10), br = B.get(b10);
+        if (!kr || !br) continue;
+        // 名前が昨年と同じ（コードの使い回しではない）組だけを正解として使う
+        if (mnz(kr.univ) === mnz(cell(r, 13)) && mnz(kr.fac) === mnz(cell(r, 14)) && mnz(kr.dept) === mnz(cell(r, 15)) && mnz(br.dept) === mnz(cell(r, 8))) {
+            validRows++;
+            const b8 = b10.slice(0, 8), k8 = k10.slice(0, 8);
+            if (!anch.has(b8)) anch.set(b8, new Map());
+            anch.get(b8).set(k8, (anch.get(b8).get(k8) || 0) + 1);
+            if (!gtB2K.has(b10)) gtB2K.set(b10, new Set());
+            gtB2K.get(b10).add(k10);
+        }
+    }
+    const K8 = new Map(), B8 = new Map();
+    for (const k of K.keys()) { const x = k.slice(0, 8); if (!K8.has(x)) K8.set(x, []); K8.get(x).push(k); }
+    for (const b of B.keys()) { const x = b.slice(0, 8); if (!B8.has(x)) B8.set(x, []); B8.get(x).push(b); }
+    const groups = [];
+    for (const [b8, cnt] of anch) {
+        const ks = []; for (const k8 of cnt.keys()) ks.push(...(K8.get(k8) || []));
+        const classes = new Set((B8.get(b8) || []).map(b => bclass(B.get(b))));
+        for (const cls of classes) {
+            const bs = B8.get(b8).filter(b => bclass(B.get(b)) === cls), kss = ks.filter(k => kclass(K.get(k)) === cls);
+            const known = bs.filter(b => gtB2K.has(b) || bonly.has(b));
+            if (bs.length && kss.length && known.length) groups.push({ b8, cls, bs, ks: kss, known, univ: K.get(kss[0]).univ, priv: !['1', '2'].includes(K.get(kss[0]).type) });
+        }
+    }
+    let gtN = 0; for (const s of gtB2K.values()) gtN += s.size;
+    return { groups, gtB2K, gtN, pairRows, validRows };
+}
+
+// ====================================================================
+//  学習（ロジスティック回帰・L-BFGS）。train_method_model.py の fit() と同じ目的関数:  Σ損失 + (1/2C)‖w‖²
+// ====================================================================
+const tick = () => new Promise(r => setTimeout(r, 0));
+function buildDesign(K, B, groups, gtB2K, minDf) {
+    const raw = [], ys = [];
+    for (const g of groups) {
+        if (!g.priv) continue;                      // 国公立は従来の判定のまま。私大・短大の行だけで学習する
+        for (const b of g.known) for (const k of g.ks) { raw.push(methodFeats(B.get(b).way, K.get(k).meth)); ys.push(gtB2K.has(b) && gtB2K.get(b).has(k) ? 1 : 0); }
+    }
+    const cnt = new Map();
+    for (const f of raw) for (const k of f.keys()) cnt.set(k, (cnt.get(k) || 0) + 1);
+    const names = [...cnt.keys()].filter(k => cnt.get(k) >= minDf).sort(), index = new Map(names.map((n, i) => [n, i]));
+    const rows = raw.map(f => { const ix = [], vs = []; for (const [k, v] of f) { const i = index.get(k); if (i !== undefined && v !== 0) { ix.push(i); vs.push(v); } } return { ix: Int32Array.from(ix), vs: Float64Array.from(vs) }; });
+    return { names, rows, ys };
+}
+async function trainLogReg(D, C, onProgress) {
+    const d = D.names.length, n = D.rows.length, lam = 1 / (2 * C);
+    const dim = d + 1;                              // 最後が切片（正則化なし）
+    const fg = (x, g) => {
+        g.fill(0); let f = 0;
+        for (let i = 0; i < n; i++) {
+            const r = D.rows[i]; let z = x[d];
+            for (let t = 0; t < r.ix.length; t++) z += x[r.ix[t]] * r.vs[t];
+            const y = D.ys[i], sp = z > 0 ? z + Math.log1p(Math.exp(-z)) : Math.log1p(Math.exp(z));
+            f += sp - y * z;
+            const e = 1 / (1 + Math.exp(-z)) - y;
+            for (let t = 0; t < r.ix.length; t++) g[r.ix[t]] += e * r.vs[t];
+            g[d] += e;
+        }
+        for (let j = 0; j < d; j++) { f += lam * x[j] * x[j]; g[j] += 2 * lam * x[j]; }
+        return f;
+    };
+    const M = 10, S = [], Y = [], x = new Float64Array(dim), g = new Float64Array(dim), xn = new Float64Array(dim), gn = new Float64Array(dim);
+    let f = fg(x, g);
+    const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+    for (let it = 0; it < 500; it++) {
+        let gmax = 0; for (let i = 0; i < dim; i++) gmax = Math.max(gmax, Math.abs(g[i]));
+        if (gmax < 1e-4) break;
+        const dir = Float64Array.from(g), al = [];
+        for (let k = S.length - 1; k >= 0; k--) { const rho = 1 / dot(Y[k], S[k]); const a = rho * dot(S[k], dir); al[k] = a; for (let i = 0; i < dim; i++) dir[i] -= a * Y[k][i]; }
+        if (S.length) { const k = S.length - 1, sc = dot(S[k], Y[k]) / dot(Y[k], Y[k]); for (let i = 0; i < dim; i++) dir[i] *= sc; }
+        for (let k = 0; k < S.length; k++) { const rho = 1 / dot(Y[k], S[k]); const b = rho * dot(Y[k], dir); for (let i = 0; i < dim; i++) dir[i] += S[k][i] * (al[k] - b); }
+        for (let i = 0; i < dim; i++) dir[i] = -dir[i];
+        let gd = dot(g, dir);
+        if (gd >= 0) { for (let i = 0; i < dim; i++) dir[i] = -g[i]; gd = -dot(g, g); S.length = 0; Y.length = 0; }
+        let t = S.length ? 1 : 1 / Math.max(1e-8, Math.sqrt(dot(g, g))), fn = 0, ok = false;
+        for (let ls = 0; ls < 40; ls++) {
+            for (let i = 0; i < dim; i++) xn[i] = x[i] + t * dir[i];
+            fn = fg(xn, gn);
+            if (isFinite(fn) && fn <= f + 1e-4 * t * gd) { ok = true; break; }
+            t *= 0.5;
+        }
+        if (!ok) break;
+        const s = new Float64Array(dim), y = new Float64Array(dim);
+        for (let i = 0; i < dim; i++) { s[i] = xn[i] - x[i]; y[i] = gn[i] - g[i]; }
+        if (dot(s, y) > 1e-10) { S.push(s); Y.push(y); if (S.length > M) { S.shift(); Y.shift(); } }
+        const fOld = f; x.set(xn); g.set(gn); f = fn;
+        if (Math.abs(fOld - f) < 1e-9 * Math.max(1, Math.abs(f))) break;
+        if (it % 10 === 0) { onProgress && onProgress(it); await tick(); }
+    }
+    return { names: D.names, w: Array.from(x.subarray(0, d)), b: x[d] };
+}
+function scoreWith(model, wmap, bway, kmeth) {
+    let s = model.b; for (const [k, v] of methodFeats(bway, kmeth)) { const w = wmap.get(k); if (w !== undefined) s += w * v; } return s;
+}
+function evalGroups(K, B, groups, gtB2K, model, filter) {
+    const wmap = new Map(model.names.map((n, i) => [n, model.w[i]]));
+    const tot = { gt: 0, hit: 0, wrong: 0 };
+    for (const g of groups) {
+        if (!g.priv || !filter(g)) continue;
+        const S = g.bs.map(b => g.ks.map(k => scoreWith(model, wmap, B.get(b).way, K.get(k).meth)));
+        const pr = new Set(assignScores(S, g.bs.length, g.ks.length).map(([i, j]) => g.ks[j] + '|' + g.bs[i]));
+        for (const b of g.known) {
+            const gk = gtB2K.get(b);
+            if (!gk) continue;
+            tot.gt += gk.size;
+            for (const k of gk) if (pr.has(k + '|' + b)) tot.hit++;
+            for (const key of pr) { const [k, bb] = key.split('|'); if (bb === b && !gk.has(k)) tot.wrong++; }
+        }
+    }
+    return tot;
+}
+const strHash = (s) => { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+function modelCsv(model) {
+    const out = model.names.map((n, i) => [n, model.w[i]]).filter(([n, w]) => Math.abs(w) >= 0.05 && !/[,"\n\r]/.test(n)).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    const lines = ['# 方式名の対応づけモデル（update.html が作成。手で編集しない）。点数 = 切片 + Σ(特徴 × 重み)', '特徴,重み', '#intercept,' + model.b.toFixed(4), ...out.map(([n, w]) => n + ',' + w.toFixed(3))];
+    return { text: '﻿' + lines.join('\n') + '\n', n: out.length };
+}
+
+// ====================================================================
+//  画面
+// ====================================================================
+const $ = (id) => document.getElementById(id);
+const files = {};
+['xlsx', 'kawai', 'bene'].forEach(k => $('f-' + k).addEventListener('change', e => { files[k] = e.target.files[0] || null; $('btn-run').disabled = !(files.xlsx && files.kawai && files.bene); }));
+const logEl = $('log');
+const log = (m) => { logEl.style.display = 'block'; $('log-card').style.display = 'block'; logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+const setBar = (p) => { $('bar').style.display = 'block'; $('bar-in').style.width = p + '%'; };
+function download(name, text) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function dlButton(label, name, text) {
+    const b = document.createElement('button'); b.className = 'dl'; b.textContent = '⬇ ' + label; b.onclick = () => download(name, text); $('dl-area').appendChild(b);
+}
+$('btn-run').addEventListener('click', async () => {
+    $('err').textContent = ''; logEl.textContent = ''; $('result').style.display = 'none'; $('dl-area').innerHTML = ''; $('report').innerHTML = '';
+    $('btn-run').disabled = true;
+    try {
+        setBar(3); log('河合ベネ表(xlsx)を読み込み中…');
+        const X = await readXlsx(await files.xlsx.arrayBuffer()); await tick();
+        const h = findHeader(X);
+        log(`  → ${X.length - h - 1} 行（見出しは ${h + 1} 行目まで）`);
+        setBar(10); log('code.csv / benecode.csv を読み込み中…');
+        const K = loadKawai(decodeText(await files.kawai.arrayBuffer())), B = loadBene(decodeText(await files.bene.arrayBuffer()));
+        log(`  → 河合 ${K.size} 行 / ベネ ${B.size} 行`);
+        if (K.size < 1000 || B.size < 1000) throw new Error('code.csv か benecode.csv の行数が少なすぎます。ファイルの選びまちがいがないか確認してください。');
+        setBar(15); log('ref_pairs.csv を作成中…');
+        const ref = makeRefPairs(X, h);
+        log(`  → ${ref.n} 行（河合×ベネの組 ${ref.both} / ベネのみ ${ref.bo} / 河合のみ ${ref.ko}）`);
+        setBar(20); log('学習用のデータを作成中…'); await tick();
+        const G = buildGroups(K, B, X, h);
+        const ratio = G.pairRows ? G.validRows / G.pairRows : 0;
+        log(`  → 学科グループ ${G.groups.length} 個 / code.csv・benecode.csv と名前が一致した正解の組 ${G.validRows} / ${G.pairRows}（${(ratio * 100).toFixed(1)}%）`);
+        if (G.groups.length < 100) throw new Error('学習に使える正解の組が少なすぎます。code.csv / benecode.csv が今年度のもので、河合ベネ表と同じ年度系統か確認してください。');
+        const D = buildDesign(K, B, G.groups, G.gtB2K, 8);
+        log(`  → 学習データ ${D.rows.length} 組 × 特徴 ${D.names.length} 個`);
+        setBar(30); log('学習中…（数十秒かかります）'); await tick();
+        const model = await trainLogReg(D, 0.5, (it) => { setBar(30 + Math.min(40, it / 5)); });
+        const mc = modelCsv(model);
+        log(`  → 完了。特徴 ${mc.n} 個を書き出します`);
+        setBar(75);
+        const all = evalGroups(K, B, G.groups, G.gtB2K, model, () => true);
+        const rows = [['ref_pairs.csv', `${ref.n} 行（河合×ベネの組 ${ref.both}）`], ['method_model.csv', `特徴 ${mc.n} 個`],
+            ['表の名前が今のcode.csv・benecode.csv と一致した割合', `${(ratio * 100).toFixed(1)}%（低いと、年度の違うファイルを選んでいる可能性があります）`],
+            ['学習データ内での的中率（参考）', `${(100 * all.hit / all.gt).toFixed(1)}%（正解 ${all.gt} 組中 ${all.hit}）／誤結合 ${all.wrong}`]];
+        if ($('chk-cv').checked) {
+            log('見たことのない大学での検証中…（5回に分けて学習します）');
+            const univs = [...new Set(G.groups.map(g => g.univ))].sort((a, b) => strHash(a) - strHash(b)), fold = new Map(univs.map((u, i) => [u, i % 5]));
+            const tot = { gt: 0, hit: 0, wrong: 0 };
+            for (let f = 0; f < 5; f++) {
+                const tr = G.groups.filter(g => fold.get(g.univ) !== f);
+                const m = await trainLogReg(buildDesign(K, B, tr, G.gtB2K, 8), 0.5, null);
+                const e = evalGroups(K, B, G.groups, G.gtB2K, m, g => fold.get(g.univ) === f);
+                tot.gt += e.gt; tot.hit += e.hit; tot.wrong += e.wrong;
+                setBar(75 + (f + 1) * 5); log(`  ${f + 1}/5 完了`); await tick();
+            }
+            rows.push(['見たことのない大学での的中率（私大・短大）', `${(100 * tot.hit / tot.gt).toFixed(1)}%（正解 ${tot.gt} 組中 ${tot.hit}）／誤結合 ${tot.wrong}（${(100 * tot.wrong / Math.max(1, tot.hit + tot.wrong)).toFixed(1)}%）`]);
+        }
+        $('report').innerHTML = rows.map(r => `<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
+        dlButton('ref_pairs.csv', 'ref_pairs.csv', ref.text); dlButton('method_model.csv', 'method_model.csv', mc.text);
+        $('result').style.display = 'block'; setBar(100); log('完了しました。');
+    } catch (e) {
+        console.error(e); $('err').textContent = '⚠ ' + (e.message || e); log('エラー: ' + (e.message || e));
+    } finally { $('btn-run').disabled = false; }
+});
+})();
+</script>
+</body>
+</html>
